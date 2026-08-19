@@ -371,8 +371,27 @@ function TarjetaProducto({ medicamento }: { medicamento: Medicamento }) {
 export default function GridProductos() {
     return (
         <main className="min-h-screen bg-gray-50">
-            {/* Barra superior */}
-            <header className="sticky top-0 z-20 border-b border-gray-200 bg-white/90 backdrop-blur-sm">
+            {/* Barra superior con efecto glass.
+                El degradado azul se mantiene entre 75-85% de opacidad para que
+                el texto siga siendo legible en navegadores sin backdrop-filter;
+                donde sí hay soporte, se aligera y el blur hace el trabajo. */}
+            <header
+                className="
+                    sticky top-0 z-20 border-b border-white/40
+                    bg-gradient-to-r from-blue-100/80 via-white/75 to-cyan-100/80
+                    shadow-sm shadow-blue-900/5
+                    backdrop-blur-xl backdrop-saturate-150
+                    supports-[backdrop-filter]:from-blue-100/50
+                    supports-[backdrop-filter]:via-white/40
+                    supports-[backdrop-filter]:to-cyan-100/50
+                "
+            >
+                {/* Filo superior claro: simula el borde biselado del cristal */}
+                <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/80 to-transparent"
+                />
+
                 <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-4 sm:px-6 lg:px-8">
                     <Link href="/" className="flex items-center gap-2">
                         <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-white">
@@ -410,14 +429,14 @@ export default function GridProductos() {
                                 name="q"
                                 type="search"
                                 placeholder="Buscar medicamentos por código de barras"
-                                className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm transition placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full rounded-lg border border-white/60 bg-white/50 py-2.5 pl-10 pr-4 text-sm text-gray-800 backdrop-blur-sm transition placeholder:text-gray-500 focus:border-transparent focus:bg-white/80 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                         </div>
                     </form>
 
                     <button
                         type="button"
-                        className="relative ml-auto flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="relative ml-auto flex items-center gap-2 rounded-lg border border-white/60 bg-white/50 px-3 py-2.5 text-sm font-medium text-gray-700 backdrop-blur-sm transition hover:bg-white/80 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                         <svg
                             aria-hidden="true"
