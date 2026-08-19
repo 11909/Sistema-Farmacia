@@ -371,13 +371,6 @@ function RankingProveedores({
                     </li>
                 );
             })}
-
-            {/* Contexto para lectores de pantalla: el orden visual ya comunica
-                el ranking, pero conviene decirlo explícitamente. */}
-            <li className="sr-only">
-                {precios.length} proveedores comparados, ordenados del precio más bajo al
-                más alto.
-            </li>
         </ul>
     );
 }
@@ -427,13 +420,7 @@ function TarjetaProducto({ medicamento }: { medicamento: Medicamento }) {
             </div>
 
             {/* Resumen: cobertura de proveedores y ahorro */}
-            <div className="mt-4 flex items-center justify-between gap-2 border-t border-gray-100 pt-4 text-[13px]">
-                <span className="text-gray-500">
-                    <span className="font-mono tabular-nums">
-                        {disponibles.length}/{medicamento.precios.length}
-                    </span>{" "}
-                    proveedores
-                </span>
+            <div className="mt-4 flex items-center justify-between gap-2 border-t border-gray-100 text-[13px]">
                 {ahorro > 0 && (
                     <span className="flex items-center gap-1.5 font-semibold text-emerald-600">
                         <IconoAhorro />
@@ -500,17 +487,19 @@ function TarjetaProducto({ medicamento }: { medicamento: Medicamento }) {
 
 export default function GridProductos() {
     return (
-        <main className="relative isolate min-h-screen bg-gradient-to-b from-blue-50 via-slate-50 to-cyan-50/60 font-sans">
-            {/* Halos difusos que dan profundidad al degradado sin competir con
-                las tarjetas. Son decorativos y quedan detrás de todo (-z-10),
-                fijos al viewport para que el color no se corte al hacer scroll. */}
+        <main className="relative isolate min-h-screen font-sans">
+            {/* Fondo: degradado suave azul -> blanco. Va en una capa fija al
+                viewport (-z-10) para que la transición sea continua y no se
+                corte ni se repita al hacer scroll en páginas largas. */}
             <div
                 aria-hidden="true"
-                className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
+                className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-gradient-to-b from-blue-100 via-blue-50 to-white"
             >
-                <div className="absolute -left-40 -top-40 h-[32rem] w-[32rem] rounded-full bg-blue-200/35 blur-3xl" />
-                <div className="absolute -right-40 top-1/4 h-[28rem] w-[28rem] rounded-full bg-cyan-200/30 blur-3xl" />
-                <div className="absolute bottom-0 left-1/3 h-[26rem] w-[26rem] rounded-full bg-indigo-200/25 blur-3xl" />
+                {/* Halos difusos que dan profundidad al degradado sin competir
+                    con las tarjetas. Puramente decorativos. */}
+                <div className="absolute -left-40 -top-40 h-[32rem] w-[32rem] rounded-full bg-blue-200/25 blur-3xl" />
+                <div className="absolute -right-40 top-1/4 h-[28rem] w-[28rem] rounded-full bg-blue-100/30 blur-3xl" />
+                <div className="absolute bottom-0 left-1/3 h-[26rem] w-[26rem] rounded-full bg-white/60 blur-3xl" />
             </div>
 
             {/* Barra superior con efecto glass.
