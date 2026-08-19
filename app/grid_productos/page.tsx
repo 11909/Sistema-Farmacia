@@ -1,173 +1,195 @@
-// Catálogo de productos (estilo e-commerce)
+// Comparador de precios por proveedor
 import Link from "next/link";
 import IconoLogin from "../components/IconoLogin";
 
 type Icono = "pastilla" | "frasco" | "tubo" | "caja";
 
-type Producto = {
-    id: number;
-    nombre: string;
+type PrecioProveedor = {
+    proveedor: string;
     precio: number;
-    precioAnterior?: number;
-    rating: number;
-    reseñas: number;
-    stock: number;
-    icono: Icono;
-    gradiente: string;
+    disponible: boolean;
 };
 
-const CATEGORIAS = [
-    "Todos",
-    "City",
-    "Farmater",
-    "Ofasa",
-    "Tenorio"
-];
+type Medicamento = {
+    id: number;
+    nombre: string;
+    presentacion: string;
+    icono: Icono;
+    gradiente: string;
+    precios: PrecioProveedor[];
+};
 
-const PRODUCTOS: Producto[] = [
+const PROVEEDORES = ["City", "Farmater", "Ofasa", "Tenorio"] as const;
+
+// Color asociado a cada proveedor para las etiquetas
+const COLOR_PROVEEDOR: Record<string, { bg: string; text: string; border: string }> = {
+    City: { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" },
+    Farmater: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
+    Ofasa: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
+    Tenorio: { bg: "bg-purple-50", text: "text-purple-700", border: "border-purple-200" },
+};
+
+const MEDICAMENTOS: Medicamento[] = [
     {
         id: 1,
         nombre: "Paracetamol 500 mg",
-
-        precio: 45,
-        precioAnterior: 60,
-        rating: 4.8,
-        reseñas: 214,
-        stock: 128,
+        presentacion: "Caja con 20 tabletas",
         icono: "pastilla",
         gradiente: "from-blue-100 to-cyan-50",
+        precios: [
+            { proveedor: "City", precio: 45, disponible: true },
+            { proveedor: "Farmater", precio: 52, disponible: true },
+            { proveedor: "Ofasa", precio: 48.5, disponible: true },
+            { proveedor: "Tenorio", precio: 60, disponible: true },
+        ],
     },
     {
         id: 2,
         nombre: "Ibuprofeno 400 mg",
-        precio: 78.5,
-        rating: 4.6,
-        reseñas: 96,
-        stock: 64,
+        presentacion: "Caja con 30 tabletas",
         icono: "pastilla",
         gradiente: "from-rose-100 to-orange-50",
+        precios: [
+            { proveedor: "City", precio: 78.5, disponible: true },
+            { proveedor: "Farmater", precio: 72, disponible: true },
+            { proveedor: "Ofasa", precio: 85, disponible: true },
+            { proveedor: "Tenorio", precio: 69.9, disponible: true },
+        ],
     },
     {
         id: 3,
         nombre: "Amoxicilina 500 mg",
-        precio: 152,
-        precioAnterior: 180,
-        rating: 4.4,
-        reseñas: 51,
-        stock: 22,
+        presentacion: "Caja con 12 cápsulas",
         icono: "caja",
         gradiente: "from-emerald-100 to-teal-50",
+        precios: [
+            { proveedor: "City", precio: 152, disponible: true },
+            { proveedor: "Farmater", precio: 145, disponible: true },
+            { proveedor: "Ofasa", precio: 160, disponible: false },
+            { proveedor: "Tenorio", precio: 148, disponible: true },
+        ],
     },
     {
         id: 4,
         nombre: "Loratadina 10 mg",
-
-        precio: 62,
-        rating: 4.5,
-        reseñas: 78,
-        stock: 9,
+        presentacion: "Caja con 20 tabletas",
         icono: "pastilla",
         gradiente: "from-violet-100 to-indigo-50",
+        precios: [
+            { proveedor: "City", precio: 62, disponible: true },
+            { proveedor: "Farmater", precio: 58, disponible: true },
+            { proveedor: "Ofasa", precio: 65, disponible: true },
+            { proveedor: "Tenorio", precio: 55, disponible: true },
+        ],
     },
     {
         id: 5,
         nombre: "Omeprazol 20 mg",
-
-        precio: 89,
-        precioAnterior: 110,
-        rating: 4.7,
-        reseñas: 133,
-        stock: 47,
+        presentacion: "Caja con 14 cápsulas",
         icono: "caja",
         gradiente: "from-amber-100 to-yellow-50",
+        precios: [
+            { proveedor: "City", precio: 89, disponible: true },
+            { proveedor: "Farmater", precio: 95, disponible: true },
+            { proveedor: "Ofasa", precio: 82, disponible: true },
+            { proveedor: "Tenorio", precio: 110, disponible: false },
+        ],
     },
     {
         id: 6,
         nombre: "Vitamina C 1 g",
-
-        precio: 135,
-        rating: 4.9,
-        reseñas: 302,
-        stock: 85,
+        presentacion: "30 tabletas efervescentes",
         icono: "frasco",
         gradiente: "from-orange-100 to-amber-50",
+        precios: [
+            { proveedor: "City", precio: 135, disponible: true },
+            { proveedor: "Farmater", precio: 128, disponible: true },
+            { proveedor: "Ofasa", precio: 140, disponible: true },
+            { proveedor: "Tenorio", precio: 125, disponible: true },
+        ],
     },
     {
         id: 7,
         nombre: "Jarabe expectorante",
-
-        precio: 98,
-        rating: 4.2,
-        reseñas: 44,
-        stock: 31,
+        presentacion: "Frasco de 120 ml",
         icono: "frasco",
         gradiente: "from-sky-100 to-blue-50",
+        precios: [
+            { proveedor: "City", precio: 98, disponible: true },
+            { proveedor: "Farmater", precio: 105, disponible: false },
+            { proveedor: "Ofasa", precio: 92, disponible: true },
+            { proveedor: "Tenorio", precio: 99, disponible: true },
+        ],
     },
     {
         id: 8,
         nombre: "Gel antibacterial 70%",
-
-        precio: 55,
-        precioAnterior: 75,
-        rating: 4.3,
-        reseñas: 187,
-        stock: 210,
+        presentacion: "Botella de 500 ml",
         icono: "frasco",
         gradiente: "from-teal-100 to-emerald-50",
+        precios: [
+            { proveedor: "City", precio: 55, disponible: true },
+            { proveedor: "Farmater", precio: 60, disponible: true },
+            { proveedor: "Ofasa", precio: 52, disponible: true },
+            { proveedor: "Tenorio", precio: 58, disponible: true },
+        ],
     },
     {
         id: 9,
         nombre: "Crema hidratante corporal",
-
-        precio: 124,
-        rating: 4.6,
-        reseñas: 65,
-        stock: 0,
+        presentacion: "Tubo de 100 g",
         icono: "tubo",
         gradiente: "from-pink-100 to-rose-50",
+        precios: [
+            { proveedor: "City", precio: 124, disponible: true },
+            { proveedor: "Farmater", precio: 118, disponible: true },
+            { proveedor: "Ofasa", precio: 130, disponible: true },
+            { proveedor: "Tenorio", precio: 115, disponible: true },
+        ],
     },
     {
         id: 10,
         nombre: "Suero oral electrolitos",
-
-        precio: 32,
-        rating: 4.5,
-        reseñas: 58,
-        stock: 143,
+        presentacion: "Botella de 625 ml",
         icono: "frasco",
         gradiente: "from-lime-100 to-green-50",
+        precios: [
+            { proveedor: "City", precio: 32, disponible: true },
+            { proveedor: "Farmater", precio: 35, disponible: true },
+            { proveedor: "Ofasa", precio: 30, disponible: true },
+            { proveedor: "Tenorio", precio: 38, disponible: false },
+        ],
     },
     {
         id: 11,
         nombre: "Termómetro digital",
-
-        precio: 249,
-        precioAnterior: 320,
-        rating: 4.7,
-        reseñas: 91,
-        stock: 6,
+        presentacion: "1 pieza con estuche",
         icono: "caja",
         gradiente: "from-slate-100 to-gray-50",
+        precios: [
+            { proveedor: "City", precio: 249, disponible: true },
+            { proveedor: "Farmater", precio: 235, disponible: true },
+            { proveedor: "Ofasa", precio: 260, disponible: true },
+            { proveedor: "Tenorio", precio: 240, disponible: true },
+        ],
     },
     {
         id: 12,
         nombre: "Cubrebocas KN95",
-
-        precio: 89,
-        rating: 4.1,
-        reseñas: 122,
-        stock: 74,
+        presentacion: "Caja con 10 piezas",
         icono: "caja",
         gradiente: "from-indigo-100 to-sky-50",
+        precios: [
+            { proveedor: "City", precio: 89, disponible: true },
+            { proveedor: "Farmater", precio: 82, disponible: true },
+            { proveedor: "Ofasa", precio: 95, disponible: false },
+            { proveedor: "Tenorio", precio: 85, disponible: true },
+        ],
     },
 ];
 
 function formatoPrecio(valor: number) {
     return `$${valor.toFixed(2)}`;
-}
-
-function calcularDescuento(precio: number, precioAnterior: number) {
-    return Math.round((1 - precio / precioAnterior) * 100);
 }
 
 function IconoProducto({ tipo }: { tipo: Icono }) {
@@ -222,67 +244,123 @@ function IconoProducto({ tipo }: { tipo: Icono }) {
     );
 }
 
+function EtiquetasPrecios({ precios }: { precios: PrecioProveedor[] }) {
+    // Sort by price ascending; unavailable go to the end
+    const ordenados = [...precios].sort((a, b) => {
+        if (!a.disponible && b.disponible) return 1;
+        if (a.disponible && !b.disponible) return -1;
+        return a.precio - b.precio;
+    });
 
-function TarjetaProducto({ producto }: { producto: Producto }) {
-    const agotado = producto.stock === 0;
+    const mejorPrecio = ordenados.find((p) => p.disponible)?.precio ?? null;
+
+    return (
+        <div className="flex flex-wrap gap-1.5">
+            {ordenados.map((p) => {
+                const colores = COLOR_PROVEEDOR[p.proveedor] ?? {
+                    bg: "bg-gray-50",
+                    text: "text-gray-700",
+                    border: "border-gray-200",
+                };
+
+                const esMejor = p.disponible && p.precio === mejorPrecio;
+
+                return (
+                    <span
+                        key={p.proveedor}
+                        className={`
+                            inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium
+                            ${p.disponible ? colores.bg : "bg-gray-100"}
+                            ${p.disponible ? colores.text : "text-gray-400"}
+                            ${p.disponible ? colores.border : "border-gray-200"}
+                            ${esMejor ? "ring-2 ring-emerald-400/50" : ""}
+                            ${!p.disponible ? "line-through opacity-60" : ""}
+                        `}
+                    >
+                        {esMejor && (
+                            <svg
+                                aria-hidden="true"
+                                className="h-3 w-3 text-emerald-500"
+                                fill="currentColor"
+                                viewBox="0 0 20 20"
+                            >
+                                <path
+                                    fillRule="evenodd"
+                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                                    clipRule="evenodd"
+                                />
+                            </svg>
+                        )}
+                        <span className="font-semibold">{p.proveedor}</span>
+                        <span className={p.disponible ? "" : ""}>{formatoPrecio(p.precio)}</span>
+                        {!p.disponible && (
+                            <span className="text-[10px] italic">Agotado</span>
+                        )}
+                    </span>
+                );
+            })}
+        </div>
+    );
+}
+
+function TarjetaProducto({ medicamento }: { medicamento: Medicamento }) {
+    const preciosDisponibles = medicamento.precios.filter((p) => p.disponible);
+    const menorPrecio = preciosDisponibles.length
+        ? Math.min(...preciosDisponibles.map((p) => p.precio))
+        : null;
+    const mayorPrecio = preciosDisponibles.length
+        ? Math.max(...preciosDisponibles.map((p) => p.precio))
+        : null;
 
     return (
         <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white transition hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-900/5">
             {/* Imagen / arte del producto */}
             <div
-                className={`relative flex aspect-square items-center justify-center bg-gradient-to-br ${producto.gradiente}`}
+                className={`relative flex aspect-square items-center justify-center bg-gradient-to-br ${medicamento.gradiente}`}
             >
                 <div className="transition-transform duration-300 group-hover:scale-110">
-                    <IconoProducto tipo={producto.icono} />
+                    <IconoProducto tipo={medicamento.icono} />
                 </div>
             </div>
 
-            {/* Detalle */}
-            <div className="flex flex-1 flex-col gap-2 p-4">
+            {/* Etiquetas de precios por proveedor (debajo de la imagen) */}
+            <div className="border-b border-gray-100 px-3 py-2.5">
+                <EtiquetasPrecios precios={medicamento.precios} />
+            </div>
 
+            {/* Detalle */}
+            <div className="flex flex-1 flex-col gap-1.5 p-4">
                 <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-gray-800">
                     <Link
-                        href={`/grid_productos/${producto.id}`}
+                        href={`/grid_productos/${medicamento.id}`}
                         className="transition hover:text-blue-700 focus:underline focus:outline-none"
                     >
-                        {producto.nombre}
+                        {medicamento.nombre}
                     </Link>
                 </h3>
+                <p className="text-xs text-gray-500">{medicamento.presentacion}</p>
 
-                <div className="mt-auto space-y-2 pt-2">
-                    <div className="flex items-baseline gap-2">
-                        <span className="text-lg font-bold text-gray-900">
-                            {formatoPrecio(producto.precio)}
-                        </span>
-                        {producto.precioAnterior && (
-                            <span className="text-sm text-gray-400 line-through">
-                                {formatoPrecio(producto.precioAnterior)}
+                {/* Rango de precios */}
+                {menorPrecio !== null && mayorPrecio !== null && (
+                    <div className="mt-auto pt-3">
+                        <div className="flex items-baseline gap-1.5">
+                            <span className="text-base font-bold text-emerald-700">
+                                {formatoPrecio(menorPrecio)}
                             </span>
-                        )}
+                            {menorPrecio !== mayorPrecio && (
+                                <>
+                                    <span className="text-xs text-gray-400">—</span>
+                                    <span className="text-sm text-gray-500">
+                                        {formatoPrecio(mayorPrecio)}
+                                    </span>
+                                </>
+                            )}
+                        </div>
+                        <p className="mt-0.5 text-[11px] text-gray-400">
+                            {preciosDisponibles.length} de {medicamento.precios.length} proveedores
+                        </p>
                     </div>
-
-                    <button
-                        type="button"
-                        disabled={agotado}
-                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400"
-                    >
-                        <svg
-                            aria-hidden="true"
-                            className="h-4 w-4"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
-                            />
-                        </svg>
-                        {agotado ? "No disponible" : "Agregar al carrito"}
-                    </button>
-                </div>
+                )}
             </div>
         </article>
     );
@@ -296,7 +374,7 @@ export default function GridProductos() {
                 <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-4 sm:px-6 lg:px-8">
                     <Link href="/" className="flex items-center gap-2">
                         <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-white">
-                            <IconoLogin></IconoLogin>
+                            <IconoLogin />
                         </span>
                         <span className="text-lg font-bold text-gray-800">
                             Sistema Farmacia
@@ -329,7 +407,7 @@ export default function GridProductos() {
                                 id="buscar"
                                 name="q"
                                 type="search"
-                                placeholder="Buscar medicamentos por codigo de barras"
+                                placeholder="Buscar medicamentos por código de barras"
                                 className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm transition placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                         </div>
@@ -362,54 +440,22 @@ export default function GridProductos() {
             </header>
 
             <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-                {/* Filtros */}
-                <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-                    <div className="flex flex-wrap gap-2">
-                        {CATEGORIAS.map((categoria, i) => (
-                            <button
-                                key={categoria}
-                                type="button"
-                                aria-pressed={i === 0}
-                                className={`rounded-full px-4 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${i === 0
-                                    ? "bg-blue-600 text-white"
-                                    : "border border-gray-300 bg-white text-gray-600 hover:border-blue-300 hover:text-blue-700"
-                                    }`}
-                            >
-                                {categoria}
-                            </button>
-                        ))}
-                    </div>
 
-                    <div className="flex items-center gap-2">
-                        <label htmlFor="orden" className="text-sm text-gray-500">
-                            Ordenar por
-                        </label>
-                        <select
-                            id="orden"
-                            name="orden"
-                            defaultValue="relevancia"
-                            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 transition focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            <option value="relevancia">Relevancia</option>
-                            <option value="precio-asc">Menor precio</option>
-                            <option value="precio-desc">Mayor precio</option>
-                            <option value="rating">Mejor calificados</option>
-                        </select>
-                    </div>
-                </div>
+
+
 
                 <p className="mb-4 text-sm text-gray-500">
                     Mostrando{" "}
                     <span className="font-semibold text-gray-700">
-                        {PRODUCTOS.length}
+                        {MEDICAMENTOS.length}
                     </span>{" "}
-                    productos
+                    medicamentos
                 </p>
 
                 {/* Grid de tarjetas */}
-                <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3 lg:grid-cols-4">
-                    {PRODUCTOS.map((producto) => (
-                        <TarjetaProducto key={producto.id} producto={producto} />
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
+                    {MEDICAMENTOS.map((med) => (
+                        <TarjetaProducto key={med.id} medicamento={med} />
                     ))}
                 </div>
 
