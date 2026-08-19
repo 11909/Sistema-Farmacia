@@ -1,11 +1,17 @@
+import GradientBubbles from "../components/GradientBubbles";
+
 export default function LoginLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
     return (
-        <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-blue-100 via-white to-blue-200 bg-[length:200%_200%] animate-gradient-rotate">
-            <div className="w-full max-w-md">
+        <div className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden">
+            {/* Fondo animado */}
+            <GradientBubbles />
+
+            {/* Contenido */}
+            <div className="relative z-10 w-full max-w-md">
                 {/* Header */}
                 <div className="text-center mb-8">
                     <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-full mb-4">
@@ -28,10 +34,9 @@ export default function LoginLayout({
                     <p className="text-gray-500 mt-1">Inicia sesión para continuar</p>
                 </div>
 
-                {/* Card con gradiente animado */}
-                <div className="relative rounded-2xl p-[2px] overflow-hidden shadow-lg">
-                    {/* Contenido del card */}
-                    <div className="relative bg-white rounded-2xl p-8">{children}</div>
+                {/* Card */}
+                <div className="rounded-2xl shadow-lg bg-white/80 backdrop-blur-sm border border-white/60">
+                    <div className="rounded-2xl p-8">{children}</div>
                 </div>
 
                 {/* Footer */}

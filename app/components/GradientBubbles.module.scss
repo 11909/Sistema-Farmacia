@@ -1,0 +1,240 @@
+// Variables de color y configuración del efecto.
+// Se exponen como CSS custom properties sobre .gradientBg para que
+// puedan sobreescribirse desde fuera (inline style o clase padre).
+.gradientBg {
+  --color-bg1: rgb(240, 247, 255);
+  --color-bg2: rgb(255, 255, 255);
+  --color1: 147, 197, 253;
+  --color2: 191, 219, 254;
+  --color3: 96, 165, 250;
+  --color4: 186, 230, 253;
+  --color5: 125, 185, 252;
+  --color6: 165, 210, 255;
+  --color7: 110, 175, 250;
+  --color8: 205, 232, 255;
+  --color-interactive: 129, 180, 254;
+  --color-interactive2: 96, 165, 250;
+  --color-interactive3: 186, 224, 255;
+  --color-interactive4: 147, 197, 253;
+  --circle-size: 80%;
+  --blending: normal;
+  --blob-opacity: 0.4;
+
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: linear-gradient(40deg, var(--color-bg1), var(--color-bg2));
+
+  svg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 0;
+  }
+}
+
+.gradientsContainer {
+  filter: url(#goo) blur(40px);
+  width: 100%;
+  height: 100%;
+}
+
+// Mixin base compartido por todos los blobs.
+@mixin blob($color, $alpha: var(--blob-opacity), $stop: 50%) {
+  position: absolute;
+  background: radial-gradient(
+      circle at center,
+      rgba($color, $alpha) 0,
+      rgba($color, 0) $stop
+    )
+    no-repeat;
+  mix-blend-mode: var(--blending);
+}
+
+@keyframes moveInCircle {
+  0% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(180deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes moveVertical {
+  0% {
+    transform: translateY(-50%);
+  }
+  50% {
+    transform: translateY(50%);
+  }
+  100% {
+    transform: translateY(-50%);
+  }
+}
+
+@keyframes moveHorizontal {
+  0% {
+    transform: translateX(-50%) translateY(-10%);
+  }
+  50% {
+    transform: translateX(50%) translateY(10%);
+  }
+  100% {
+    transform: translateX(-50%) translateY(-10%);
+  }
+}
+
+@keyframes moveDiagonal {
+  0% {
+    transform: translateX(-30%) translateY(30%);
+  }
+  50% {
+    transform: translateX(30%) translateY(-30%);
+  }
+  100% {
+    transform: translateX(-30%) translateY(30%);
+  }
+}
+
+/* === Blobs con animación automática === */
+
+.g1 {
+  @include blob(var(--color1));
+  width: var(--circle-size);
+  height: var(--circle-size);
+  top: calc(50% - var(--circle-size) / 2);
+  left: calc(50% - var(--circle-size) / 2);
+  transform-origin: center center;
+  animation: moveVertical 30s ease infinite;
+  opacity: 1;
+}
+
+.g2 {
+  @include blob(var(--color2));
+  width: var(--circle-size);
+  height: var(--circle-size);
+  top: calc(50% - var(--circle-size) / 2);
+  left: calc(50% - var(--circle-size) / 2);
+  transform-origin: calc(50% - 400px);
+  animation: moveInCircle 20s reverse infinite;
+  opacity: 1;
+}
+
+.g3 {
+  @include blob(var(--color3));
+  width: var(--circle-size);
+  height: var(--circle-size);
+  top: calc(50% - var(--circle-size) / 2 + 200px);
+  left: calc(50% - var(--circle-size) / 2 - 500px);
+  transform-origin: calc(50% + 400px);
+  animation: moveInCircle 40s linear infinite;
+  opacity: 1;
+}
+
+.g4 {
+  @include blob(var(--color4), 0.5);
+  width: var(--circle-size);
+  height: var(--circle-size);
+  top: calc(50% - var(--circle-size) / 2);
+  left: calc(50% - var(--circle-size) / 2);
+  transform-origin: calc(50% - 200px);
+  animation: moveHorizontal 40s ease infinite;
+  opacity: 0.7;
+}
+
+.g5 {
+  @include blob(var(--color5));
+  width: calc(var(--circle-size) * 2);
+  height: calc(var(--circle-size) * 2);
+  top: calc(50% - var(--circle-size));
+  left: calc(50% - var(--circle-size));
+  transform-origin: calc(50% - 800px) calc(50% + 200px);
+  animation: moveInCircle 20s ease infinite;
+  opacity: 1;
+}
+
+.g6 {
+  @include blob(var(--color6), 0.45);
+  width: calc(var(--circle-size) * 0.7);
+  height: calc(var(--circle-size) * 0.7);
+  top: calc(50% - var(--circle-size) * 0.35 - 150px);
+  left: calc(50% - var(--circle-size) * 0.35 + 350px);
+  transform-origin: calc(50% + 300px) calc(50% - 200px);
+  animation: moveDiagonal 25s ease infinite;
+  opacity: 0.9;
+}
+
+.g7 {
+  @include blob(var(--color7), 0.35);
+  width: calc(var(--circle-size) * 0.6);
+  height: calc(var(--circle-size) * 0.6);
+  top: calc(50% - var(--circle-size) * 0.3 + 250px);
+  left: calc(50% - var(--circle-size) * 0.3 + 200px);
+  transform-origin: calc(50% - 300px) calc(50% + 300px);
+  animation: moveInCircle 35s reverse infinite;
+  opacity: 0.8;
+}
+
+.g8 {
+  @include blob(var(--color8), 0.5);
+  width: calc(var(--circle-size) * 0.9);
+  height: calc(var(--circle-size) * 0.9);
+  top: calc(50% - var(--circle-size) * 0.45 - 250px);
+  left: calc(50% - var(--circle-size) * 0.45 - 300px);
+  transform-origin: calc(50% + 200px) calc(50% + 150px);
+  animation: moveHorizontal 28s ease infinite;
+  opacity: 0.85;
+}
+
+/* === Blobs interactivos que siguen al cursor ===
+   La geometría es idéntica en todos (100% con offset -50%) para que
+   el translate() aplicado por JS los centre sobre el cursor.
+   El tamaño aparente se controla con el stop del radial-gradient. */
+
+.interactive,
+.interactive2,
+.interactive3,
+.interactive4 {
+  width: 100%;
+  height: 100%;
+  top: -50%;
+  left: -50%;
+}
+
+.interactive {
+  @include blob(var(--color-interactive), 0.4, 50%);
+  opacity: 0.7;
+}
+
+.interactive2 {
+  @include blob(var(--color-interactive2), 0.35, 35%);
+  opacity: 0.6;
+}
+
+.interactive3 {
+  @include blob(var(--color-interactive3), 0.45, 28%);
+  opacity: 0.7;
+}
+
+.interactive4 {
+  @include blob(var(--color-interactive4), 0.3, 42%);
+  opacity: 0.55;
+}
+
+/* Respeta la preferencia de movimiento reducido del usuario */
+@media (prefers-reduced-motion: reduce) {
+  .g1,
+  .g2,
+  .g3,
+  .g4,
+  .g5,
+  .g6,
+  .g7,
+  .g8 {
+    animation: none;
+  }
+}
