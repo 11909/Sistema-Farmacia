@@ -23,12 +23,36 @@ type Medicamento = {
 
 const PROVEEDORES = ["City", "Farmater", "Ofasa", "Tenorio"] as const;
 
-// Color asociado a cada proveedor para las etiquetas
-const COLOR_PROVEEDOR: Record<string, { bg: string; text: string; border: string }> = {
-    City: { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" },
-    Farmater: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
-    Ofasa: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
-    Tenorio: { bg: "bg-purple-50", text: "text-purple-700", border: "border-purple-200" },
+// Color asociado a cada proveedor para el ranking de cristal líquido.
+// City -> azul, Ofasa -> naranja, Farmater (Farmacenter) -> negro, Tenorio -> amarillo.
+const COLOR_PROVEEDOR: Record<
+    string,
+    { bg: string; text: string; border: string; glow: string }
+> = {
+    City: {
+        bg: "bg-blue-500/20",
+        text: "text-blue-900",
+        border: "border-blue-300/60",
+        glow: "rgba(59, 130, 246, 0.65)", // azul
+    },
+    Farmater: {
+        bg: "bg-neutral-900/15",
+        text: "text-neutral-900",
+        border: "border-neutral-500/50",
+        glow: "rgba(23, 23, 23, 0.55)", // negro
+    },
+    Ofasa: {
+        bg: "bg-orange-500/20",
+        text: "text-orange-900",
+        border: "border-orange-300/60",
+        glow: "rgba(249, 115, 22, 0.65)", // naranja
+    },
+    Tenorio: {
+        bg: "bg-yellow-400/25",
+        text: "text-yellow-900",
+        border: "border-yellow-400/60",
+        glow: "rgba(250, 204, 21, 0.7)", // amarillo
+    },
 };
 
 const MEDICAMENTOS: Medicamento[] = [
@@ -246,7 +270,7 @@ function IconoProducto({ tipo }: { tipo: Icono }) {
     );
 }
 
-function EtiquetasPrecios({ precios }: { precios: PrecioProveedor[] }) {
+function RankingProveedores({ precios }: { precios: PrecioProveedor[] }) {
     // Sort by price ascending; unavailable go to the end
     const ordenados = [...precios].sort((a, b) => {
         if (!a.disponible && b.disponible) return 1;
@@ -257,48 +281,67 @@ function EtiquetasPrecios({ precios }: { precios: PrecioProveedor[] }) {
     const mejorPrecio = ordenados.find((p) => p.disponible)?.precio ?? null;
 
     return (
-        <div className="flex flex-wrap gap-1.5">
-            {ordenados.map((p) => {
+        <div className="flex w-16 shrink-0 flex-col self-stretch border-r border-gray-200/70 sm:w-[4.5rem]">
+            {ordenados.map((p, idx) => {
                 const colores = COLOR_PROVEEDOR[p.proveedor] ?? {
-                    bg: "bg-gray-50",
+                    bg: "bg-gray-100/30",
                     text: "text-gray-700",
-                    border: "border-gray-200",
+                    border: "border-gray-300/50",
+                    glow: "rgba(148, 163, 184, 0.5)",
                 };
 
                 const esMejor = p.disponible && p.precio === mejorPrecio;
 
                 return (
-                    <span
+                    <div
                         key={p.proveedor}
+                        style={
+                            esMejor
+                                ? ({
+                                    "--glow-color": colores.glow,
+                                    borderLeftColor: colores.glow,
+                                } as React.CSSProperties)
+                                : undefined
+                        }
                         className={`
-                            inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium
-                            ${p.disponible ? colores.bg : "bg-gray-100"}
+                            etiqueta-cristal relative flex flex-1 flex-col items-center justify-center gap-0.5 border-b border-white/40 px-1 py-2 text-center last:border-b-0
+                            ${p.disponible ? colores.bg : "bg-gray-100/40"}
                             ${p.disponible ? colores.text : "text-gray-400"}
-                            ${p.disponible ? colores.border : "border-gray-200"}
-                            ${esMejor ? "ring-2 ring-emerald-400/50" : ""}
-                            ${!p.disponible ? "line-through opacity-60" : ""}
+                            ${esMejor ? "etiqueta-brillante border-l-4 font-bold" : ""}
                         `}
                     >
-                        {esMejor && (
-                            <svg
-                                aria-hidden="true"
-                                className="h-3 w-3 text-emerald-500"
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                            >
-                                <path
-                                    fillRule="evenodd"
-                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
-                                    clipRule="evenodd"
-                                />
-                            </svg>
-                        )}
-                        <span className="font-semibold">{p.proveedor}</span>
-                        <span className={p.disponible ? "" : ""}>{formatoPrecio(p.precio)}</span>
+                        <span className="z-[3] flex items-center gap-1">
+                            <span className="text-[11px] font-bold leading-none opacity-70">
+                                {idx + 1}
+                            </span>
+                            {esMejor && (
+                                <svg
+                                    aria-hidden="true"
+                                    className="h-3 w-3 drop-shadow-sm"
+                                    fill="currentColor"
+                                    viewBox="0 0 20 20"
+                                >
+                                    <path
+                                        fillRule="evenodd"
+                                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                                        clipRule="evenodd"
+                                    />
+                                </svg>
+                            )}
+                        </span>
+                        <span className="z-[3] text-[11px] font-semibold leading-tight">
+                            {p.proveedor}
+                        </span>
+                        <span
+                            className={`z-[3] text-xs font-semibold leading-tight ${!p.disponible ? "line-through opacity-70" : ""
+                                }`}
+                        >
+                            {formatoPrecio(p.precio)}
+                        </span>
                         {!p.disponible && (
-                            <span className="text-[10px] italic">Agotado</span>
+                            <span className="z-[3] text-[9px] italic leading-none">Agotado</span>
                         )}
-                    </span>
+                    </div>
                 );
             })}
         </div>
@@ -315,54 +358,56 @@ function TarjetaProducto({ medicamento }: { medicamento: Medicamento }) {
         : null;
 
     return (
-        <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white transition hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-900/5">
-            {/* Imagen / arte del producto */}
-            <div
-                className={`relative flex aspect-square items-center justify-center bg-gradient-to-br ${medicamento.gradiente}`}
-            >
-                <div className="transition-transform duration-300 group-hover:scale-110">
-                    <IconoProducto tipo={medicamento.icono} />
-                </div>
-            </div>
+        <article className="group relative flex overflow-hidden rounded-2xl border border-gray-200 bg-white transition hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-900/5">
+            {/* Rail de ranking de proveedores, integrado en el costado izquierdo
+                de la tarjeta (1ro = más barato, último = más caro) */}
+            <RankingProveedores precios={medicamento.precios} />
 
-            {/* Etiquetas de precios por proveedor (debajo de la imagen) */}
-            <div className="border-b border-gray-100 px-3 py-2.5">
-                <EtiquetasPrecios precios={medicamento.precios} />
-            </div>
-
-            {/* Detalle */}
-            <div className="flex flex-1 flex-col gap-1.5 p-4">
-                <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-gray-800">
-                    <Link
-                        href={`/grid_productos/${medicamento.id}`}
-                        className="transition hover:text-blue-700 focus:underline focus:outline-none"
-                    >
-                        {medicamento.nombre}
-                    </Link>
-                </h3>
-                <p className="text-xs text-gray-500">{medicamento.presentacion}</p>
-
-                {/* Rango de precios */}
-                {menorPrecio !== null && mayorPrecio !== null && (
-                    <div className="mt-auto pt-3">
-                        <div className="flex items-baseline gap-1.5">
-                            <span className="text-base font-bold text-emerald-700">
-                                {formatoPrecio(menorPrecio)}
-                            </span>
-                            {menorPrecio !== mayorPrecio && (
-                                <>
-                                    <span className="text-xs text-gray-400">—</span>
-                                    <span className="text-sm text-gray-500">
-                                        {formatoPrecio(mayorPrecio)}
-                                    </span>
-                                </>
-                            )}
-                        </div>
-                        <p className="mt-0.5 text-[11px] text-gray-400">
-                            {preciosDisponibles.length} de {medicamento.precios.length} proveedores
-                        </p>
+            {/* Columna derecha: arte del producto + detalle */}
+            <div className="flex min-w-0 flex-1 flex-col">
+                {/* Imagen / arte del producto */}
+                <div
+                    className={`relative flex aspect-[4/3] items-center justify-center bg-gradient-to-br ${medicamento.gradiente}`}
+                >
+                    <div className="transition-transform duration-300 group-hover:scale-110">
+                        <IconoProducto tipo={medicamento.icono} />
                     </div>
-                )}
+                </div>
+
+                {/* Detalle */}
+                <div className="flex flex-1 flex-col gap-1.5 p-4">
+                    <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-gray-800">
+                        <Link
+                            href={`/grid_productos/${medicamento.id}`}
+                            className="transition hover:text-blue-700 focus:underline focus:outline-none"
+                        >
+                            {medicamento.nombre}
+                        </Link>
+                    </h3>
+                    <p className="text-xs text-gray-500">{medicamento.presentacion}</p>
+
+                    {/* Rango de precios */}
+                    {menorPrecio !== null && mayorPrecio !== null && (
+                        <div className="mt-auto pt-3">
+                            <div className="flex items-baseline gap-1.5">
+                                <span className="text-base font-bold text-emerald-700">
+                                    {formatoPrecio(menorPrecio)}
+                                </span>
+                                {menorPrecio !== mayorPrecio && (
+                                    <>
+                                        <span className="text-xs text-gray-400">—</span>
+                                        <span className="text-sm text-gray-500">
+                                            {formatoPrecio(mayorPrecio)}
+                                        </span>
+                                    </>
+                                )}
+                            </div>
+                            <p className="mt-0.5 text-[11px] text-gray-400">
+                                {preciosDisponibles.length} de {medicamento.precios.length} proveedores
+                            </p>
+                        </div>
+                    )}
+                </div>
             </div>
         </article>
     );
