@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { signIn, signOut, useSession } from "next-auth/react";
 
 export default function Login() {
     const [showPassword, setShowPassword] = useState(false);
@@ -103,7 +104,7 @@ export default function Login() {
                         <span className="text-sm text-gray-600">Recordarme</span>
                     </label>
                     <a
-                        href="#"
+                        href="/login/recuperar_contrasena"
                         className="text-sm text-blue-600 hover:text-blue-800 transition"
                     >
                         ¿Olvidaste tu contraseña?
@@ -118,17 +119,6 @@ export default function Login() {
                     Iniciar sesión
                 </button>
             </form>
-
-            {/* Registro */}
-            <p className="text-center text-sm text-gray-500 mt-6">
-                ¿No tienes cuenta?{" "}
-                <Link
-                    href="/login/registro_nuevo_usuario"
-                    className="text-blue-600 font-medium hover:text-blue-800 transition"
-                >
-                    Regístrate aquí
-                </Link>
-            </p>
         </>
     );
 }
