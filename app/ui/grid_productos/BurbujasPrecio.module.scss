@@ -1,3 +1,5 @@
+@use "sass:math";
+
 // Versión reducida del efecto de burbujas del login (GradientBubbles), pensada
 // para rellenar el banner de mejor precio de cada tarjeta.
 //
@@ -6,9 +8,11 @@
 //    así que el componente puede renderizarse en el servidor. Con 12 tarjetas en
 //    pantalla, replicar el seguimiento del cursor costaría 48 blobs animados por
 //    frame sin aportar nada dentro de una caja de ~100px de alto.
-//  - Burbujas pequeñas y rápidas: en vez de dos o tres manchas enormes girando
-//    lentamente, hay siete burbujas que recorren el banco de lado a lado en
-//    ciclos de 5 a 9 segundos.
+//  - Burbujas pequeñas que se fusionan (metaball) en vez de dos o tres manchas
+//    enormes: el filtro `goo` del componente aplica un umbral de alfa sobre el
+//    conjunto difuminado.
+//  - Órbitas elípticas generadas en Sass y medidas en unidades de contenedor
+//    (cqw/cqh), así que recorren el ancho completo de la etiqueta.
 //  - Los colores se leen de custom properties para poder teñir el banner con el
 //    color del proveedor ganador desde el componente.
 
@@ -33,6 +37,12 @@
   overflow: hidden;
   background: linear-gradient(40deg, var(--bp-fondo1), var(--bp-fondo2));
 
+  // Convierte la capa en contenedor de consulta: habilita las unidades cqw/cqh
+  // que usan las órbitas. Sin esto no habría forma de expresar "cruza la
+  // etiqueta entera" con transforms, porque un % en `translate` se mide contra
+  // la propia burbuja (~16% del banner), no contra el banner.
+  container-type: size;
+
   // El <svg> con la definición del filtro no debe ocupar espacio.
   svg {
     position: absolute;
@@ -55,9 +65,8 @@
 $PROPORCION: 3.4;
 
 /**
- * Una burbuja: círculo difuso anclado a un punto del banner.
- * `translate(-50%, -50%)` en cada keyframe la centra sobre ese punto, así que
- * los desplazamientos de la animación se aplican sobre el centro.
+ * Una burbuja: círculo difuso centrado en el punto (50%, 50%) de la etiqueta.
+ * La órbita la desplaza desde ahí.
  *
  * $escala  multiplica el tamaño base.
  *
@@ -67,179 +76,139 @@ $PROPORCION: 3.4;
  */
 @mixin burbuja($color, $escala: 1, $alpha: var(--bp-opacidad)) {
   position: absolute;
+  left: 50%;
+  top: 50%;
   width: calc(var(--bp-tamano) * #{$escala});
   height: calc(var(--bp-tamano) * #{$escala} * #{$PROPORCION});
   background: radial-gradient(circle at center,
       rgba($color, $alpha) 0,
       rgba($color, $alpha) 30%,
       rgba($color, 0) 50%) no-repeat;
+  // Avisa al compositor: la animación es puramente de transform y puede vivir
+  // en su propia capa, sin repintar el banner en cada frame.
+  will-change: transform;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
 }
 
-/* === Trayectorias ===
-   Cada burbuja tiene su propio recorrido para que el conjunto no se mueva en
-   bloque. Los valores están en % del propio blob, que es pequeño, de ahí las
-   cifras altas. */
+/**
+ * Genera los keyframes de una órbita elíptica cerrada.
+ *
+ * Interpolar entre muchos puntos de una elipse con `linear` mantiene la
+ * velocidad constante y el recorrido continuo. Antes había dos o tres waypoints
+ * con `ease-in-out`: la burbuja frenaba hasta cero en cada uno y volvía por el
+ * mismo camino, que es lo que se percibía como movimiento a tirones.
+ *
+ * $rx / $ry  radios en cqw / cqh (la etiqueta mide 100cqw x 100cqh).
+ * $cx / $cy  centro de la órbita, para que no orbiten todas alrededor del medio.
+ * $fase      punto de arranque (0-1), para desincronizarlas.
+ * $pasos     número de muestras: 16 basta para que la elipse no se vea poligonal.
+ */
+@mixin orbita($rx, $ry, $cx: 0, $cy: 0, $fase: 0, $pasos: 16) {
+  @for $i from 0 through $pasos {
+    $t: math.div($i, $pasos);
+    $angulo: (
+      $t + $fase) * 1turn;
+    $x: $cx + $rx * math.cos($angulo
+    );
+  $y: $cy + $ry * math.sin($angulo);
 
-@keyframes bpDeriva1 {
-  0% {
-    transform: translate(-50%, -50%);
-  }
-
-  50% {
-    transform: translate(90%, -20%);
-  }
-
-  100% {
-    transform: translate(-50%, -50%);
-  }
-}
-
-@keyframes bpDeriva2 {
-  0% {
-    transform: translate(-50%, -50%);
-  }
-
-  50% {
-    transform: translate(-190%, -85%);
-  }
-
-  100% {
-    transform: translate(-50%, -50%);
+  #{math.percentage($t)} {
+    // El translate(-50%, -50%) compensa el anclaje en (50%, 50%): centra la
+    // burbuja sobre el punto de la órbita en vez de colgarla de su esquina.
+    transform: translate(-50%, -50%) translate(#{$x}cqw, #{$y}cqh);
   }
 }
-
-@keyframes bpDeriva3 {
-  0% {
-    transform: translate(-50%, -50%);
-  }
-
-  33% {
-    transform: translate(60%, -100%);
-  }
-
-  66% {
-    transform: translate(-160%, 10%);
-  }
-
-  100% {
-    transform: translate(-50%, -50%);
-  }
 }
 
-@keyframes bpDeriva4 {
-  0% {
-    transform: translate(-50%, -50%);
-  }
+/* === Órbitas ===
+   Radios amplios en X (hasta 46cqw) para que las burbujas barran la etiqueta de
+   extremo a extremo, y contenidos en Y para que no se pierdan por arriba y abajo
+   (cada burbuja ya mide ~54cqh de alto). */
 
-  50% {
-    transform: translate(-50%, 45%);
-  }
-
-  100% {
-    transform: translate(-50%, -50%);
-  }
+@keyframes bpOrbita1 {
+  @include orbita(40, 18);
 }
 
-@keyframes bpDeriva5 {
-  0% {
-    transform: translate(-50%, -50%);
-  }
-
-  40% {
-    transform: translate(140%, -75%);
-  }
-
-  70% {
-    transform: translate(30%, 20%);
-  }
-
-  100% {
-    transform: translate(-50%, -50%);
-  }
+@keyframes bpOrbita2 {
+  @include orbita(44, 14, -3, 5, 0.35);
 }
 
-@keyframes bpDeriva6 {
-  0% {
-    transform: translate(-50%, -50%);
-  }
-
-  50% {
-    transform: translate(-230%, 30%);
-  }
-
-  100% {
-    transform: translate(-50%, -50%);
-  }
+@keyframes bpOrbita3 {
+  @include orbita(36, 22, 5, -4, 0.6);
 }
 
-@keyframes bpDeriva7 {
-  0% {
-    transform: translate(-50%, -50%);
-  }
+@keyframes bpOrbita4 {
+  @include orbita(46, 12, 0, 6, 0.15);
+}
 
-  35% {
-    transform: translate(-120%, -95%);
-  }
+@keyframes bpOrbita5 {
+  @include orbita(30, 20, -8, 0, 0.8);
+}
 
-  75% {
-    transform: translate(110%, 25%);
-  }
+@keyframes bpOrbita6 {
+  @include orbita(42, 16, 6, 3, 0.5);
+}
 
-  100% {
-    transform: translate(-50%, -50%);
-  }
+@keyframes bpOrbita7 {
+  @include orbita(34, 24, -4, -5, 0.25);
 }
 
 /* === Burbujas ===
-   Anclajes repartidos por el ancho del banner para que ninguna zona quede vacía. */
+   Duraciones dispares y algunas en `reverse`: si todas giraran igual y en el
+   mismo sentido, el conjunto se leería como un bloque rotando.
+
+   Todas caen en la franja 13-17s, repartidas según el tamaño: la más grande gira
+   en 16.9s y la más pequeña en 13s. Que las masas grandes se muevan despacio y
+   las chicas algo más rápido es lo que da la sensación de peso de una lámpara de
+   lava.
+
+   Los decimales son a propósito: con valores redondos que comparten múltiplo, las
+   burbujas volverían a alinearse cada pocos ciclos y se vería la repetición. */
 
 .b1 {
   @include burbuja(var(--bp-color2), 1);
-  left: 18%;
-  top: 42%;
-  animation: bpDeriva1 6s ease-in-out infinite;
+  animation-name: bpOrbita1;
+  animation-duration: 15.2s;
 }
 
 .b2 {
   @include burbuja(var(--bp-color1), 1.35);
-  left: 44%;
-  top: 62%;
-  animation: bpDeriva2 8s ease-in-out infinite;
+  animation-name: bpOrbita2;
+  animation-duration: 16.9s;
+  animation-direction: reverse;
 }
 
 .b3 {
   @include burbuja(var(--bp-color4), 0.8);
-  left: 70%;
-  top: 35%;
-  animation: bpDeriva3 5s ease-in-out infinite;
+  animation-name: bpOrbita3;
+  animation-duration: 14.1s;
 }
 
 .b4 {
   @include burbuja(var(--bp-color3), 1.15);
-  left: 88%;
-  top: 60%;
-  animation: bpDeriva4 6.5s ease-in-out infinite;
+  animation-name: bpOrbita4;
+  animation-duration: 16.1s;
+  animation-direction: reverse;
 }
 
 .b5 {
   @include burbuja(var(--bp-color2), 0.7);
-  left: 8%;
-  top: 72%;
-  animation: bpDeriva5 5.5s ease-in-out infinite;
+  animation-name: bpOrbita5;
+  animation-duration: 13.4s;
 }
 
 .b6 {
   @include burbuja(var(--bp-color1), 0.95);
-  left: 58%;
-  top: 22%;
-  animation: bpDeriva6 9s ease-in-out infinite;
+  animation-name: bpOrbita6;
+  animation-duration: 14.6s;
 }
 
 .b7 {
   @include burbuja(var(--bp-color4), 0.6);
-  left: 32%;
-  top: 80%;
-  animation: bpDeriva7 4.5s ease-in-out infinite;
+  animation-name: bpOrbita7;
+  animation-duration: 13s;
+  animation-direction: reverse;
 }
 
 // Respeta la preferencia de movimiento reducido del usuario.
@@ -253,5 +222,32 @@ $PROPORCION: 3.4;
   .b6,
   .b7 {
     animation: none;
+    // Sin animación no se aplicaría ningún keyframe y las siete quedarían
+    // apiladas en el centro exacto de la etiqueta.
+    transform: translate(-50%, -50%);
+  }
+
+  .b2 {
+    transform: translate(-50%, -50%) translate(-30cqw, 8cqh);
+  }
+
+  .b3 {
+    transform: translate(-50%, -50%) translate(28cqw, -10cqh);
+  }
+
+  .b4 {
+    transform: translate(-50%, -50%) translate(-14cqw, 14cqh);
+  }
+
+  .b5 {
+    transform: translate(-50%, -50%) translate(38cqw, 6cqh);
+  }
+
+  .b6 {
+    transform: translate(-50%, -50%) translate(14cqw, -12cqh);
+  }
+
+  .b7 {
+    transform: translate(-50%, -50%) translate(-40cqw, -4cqh);
   }
 }
