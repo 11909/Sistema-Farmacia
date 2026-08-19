@@ -4,6 +4,9 @@ import Link from "next/link";
 import IconoLogin from "../ui/shared/IconoLogin";
 import CardSkeleton from "../ui/grid_productos/CardSkeleton";
 import BotonCopiarCodigo from "../ui/grid_productos/BotonCopiarCodigo";
+import BurbujasPrecio, {
+    type PaletaBurbujas,
+} from "../ui/grid_productos/BurbujasPrecio";
 
 type PrecioProveedor = {
     proveedor: string;
@@ -29,8 +32,10 @@ type Medicamento = {
 const COLOR_PROVEEDOR: Record<
     string,
     {
-        /** Fondo + texto del banner de mejor precio. */
+        /** Color de texto del banner de mejor precio (el fondo lo pintan las burbujas). */
         banner: string;
+        /** Paleta de las burbujas animadas del banner. */
+        burbujas: PaletaBurbujas;
         /** Insignia circular del primer lugar. */
         insignia: string;
         /** Fondo suave de la fila ganadora del ranking. */
@@ -40,25 +45,60 @@ const COLOR_PROVEEDOR: Record<
     }
 > = {
     City: {
-        banner: "bg-blue-100 text-blue-950",
+        banner: "text-blue-950",
+        burbujas: {
+            "--bp-fondo1": "rgb(219, 234, 254)",
+            "--bp-fondo2": "rgb(239, 246, 255)",
+            "--bp-color1": "147, 197, 253",
+            "--bp-color2": "96, 165, 250",
+            "--bp-color3": "191, 219, 254",
+            "--bp-color4": "59, 130, 246",
+        },
         insignia: "bg-blue-600 text-white",
         fila: "bg-blue-50",
         guion: "border-blue-300",
     },
     Farmater: {
-        banner: "bg-neutral-600 text-white",
+        // Único caso con texto claro. Tras el umbral del filtro las manchas
+        // quedan opacas, así que ninguna pasa de neutral-500: por encima de ese
+        // tono el texto blanco del banner dejaría de contrastar.
+        banner: "text-white",
+        burbujas: {
+            "--bp-fondo1": "rgb(38, 38, 38)",
+            "--bp-fondo2": "rgb(23, 23, 23)",
+            "--bp-color1": "82, 82, 82",
+            "--bp-color2": "115, 115, 115",
+            "--bp-color3": "64, 64, 64",
+            "--bp-color4": "96, 96, 96",
+        },
         insignia: "bg-neutral-800 text-white",
         fila: "bg-neutral-100",
         guion: "border-neutral-400",
     },
     Ofasa: {
-        banner: "bg-orange-100 text-orange-950",
+        banner: "text-orange-950",
+        burbujas: {
+            "--bp-fondo1": "rgb(255, 237, 213)",
+            "--bp-fondo2": "rgb(255, 247, 237)",
+            "--bp-color1": "253, 186, 116",
+            "--bp-color2": "249, 115, 22",
+            "--bp-color3": "254, 215, 170",
+            "--bp-color4": "251, 146, 60",
+        },
         insignia: "bg-orange-500 text-white",
         fila: "bg-orange-50",
         guion: "border-orange-300",
     },
     Tenorio: {
-        banner: "bg-amber-100 text-amber-950",
+        banner: "text-amber-950",
+        burbujas: {
+            "--bp-fondo1": "rgb(254, 243, 199)",
+            "--bp-fondo2": "rgb(255, 251, 235)",
+            "--bp-color1": "252, 211, 77",
+            "--bp-color2": "245, 158, 11",
+            "--bp-color3": "253, 230, 138",
+            "--bp-color4": "251, 191, 36",
+        },
         insignia: "bg-amber-400 text-amber-950",
         fila: "bg-amber-50",
         guion: "border-amber-400",
@@ -66,7 +106,15 @@ const COLOR_PROVEEDOR: Record<
 };
 
 const COLOR_NEUTRO = {
-    banner: "bg-gray-100 text-gray-900",
+    banner: "text-gray-900",
+    burbujas: {
+        "--bp-fondo1": "rgb(229, 231, 235)",
+        "--bp-fondo2": "rgb(243, 244, 246)",
+        "--bp-color1": "209, 213, 219",
+        "--bp-color2": "156, 163, 175",
+        "--bp-color3": "229, 231, 235",
+        "--bp-color4": "107, 114, 128",
+    } as PaletaBurbujas,
     insignia: "bg-gray-500 text-white",
     fila: "bg-gray-50",
     guion: "border-gray-300",
@@ -396,7 +444,18 @@ function TarjetaProducto({ medicamento }: { medicamento: Medicamento }) {
 
             {/* Banner del mejor precio, teñido con el color del proveedor ganador */}
             {ganador && menorPrecio !== null && mayorPrecio !== null && (
-                <div className={`mt-4 rounded-2xl px-5 py-4 ${colores.banner}`}>
+                <div
+                    className={`relative isolate mt-4 overflow-hidden rounded-2xl px-5 py-4 ${colores.banner}`}
+                >
+                    {/* Fondo animado. `isolate` + `-z-10` lo dejan detrás del
+                        contenido sin sacarlo de la tarjeta. */}
+                    <div className="absolute inset-0 -z-10">
+                        <BurbujasPrecio
+                            idFiltro={`goo-precio-${medicamento.id}`}
+                            paleta={colores.burbujas}
+                        />
+                    </div>
+
                     <div className="flex items-start justify-between gap-2">
                         <p className="text-[11px] font-bold uppercase tracking-[0.12em] opacity-75">
                             Mejor precio
@@ -441,7 +500,19 @@ function TarjetaProducto({ medicamento }: { medicamento: Medicamento }) {
 
 export default function GridProductos() {
     return (
-        <main className="min-h-screen bg-slate-50 font-sans">
+        <main className="relative isolate min-h-screen bg-gradient-to-b from-blue-50 via-slate-50 to-cyan-50/60 font-sans">
+            {/* Halos difusos que dan profundidad al degradado sin competir con
+                las tarjetas. Son decorativos y quedan detrás de todo (-z-10),
+                fijos al viewport para que el color no se corte al hacer scroll. */}
+            <div
+                aria-hidden="true"
+                className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
+            >
+                <div className="absolute -left-40 -top-40 h-[32rem] w-[32rem] rounded-full bg-blue-200/35 blur-3xl" />
+                <div className="absolute -right-40 top-1/4 h-[28rem] w-[28rem] rounded-full bg-cyan-200/30 blur-3xl" />
+                <div className="absolute bottom-0 left-1/3 h-[26rem] w-[26rem] rounded-full bg-indigo-200/25 blur-3xl" />
+            </div>
+
             {/* Barra superior con efecto glass.
                 El degradado azul se mantiene entre 75-85% de opacidad para que
                 el texto siga siendo legible en navegadores sin backdrop-filter;

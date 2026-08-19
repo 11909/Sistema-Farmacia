@@ -1,0 +1,257 @@
+// Versión reducida del efecto de burbujas del login (GradientBubbles), pensada
+// para rellenar el banner de mejor precio de cada tarjeta.
+//
+// Diferencias respecto al original:
+//  - Sin blobs interactivos: no hay listener de `mousemove` ni requestAnimationFrame,
+//    así que el componente puede renderizarse en el servidor. Con 12 tarjetas en
+//    pantalla, replicar el seguimiento del cursor costaría 48 blobs animados por
+//    frame sin aportar nada dentro de una caja de ~100px de alto.
+//  - Burbujas pequeñas y rápidas: en vez de dos o tres manchas enormes girando
+//    lentamente, hay siete burbujas que recorren el banco de lado a lado en
+//    ciclos de 5 a 9 segundos.
+//  - Los colores se leen de custom properties para poder teñir el banner con el
+//    color del proveedor ganador desde el componente.
+
+.capa {
+  // Paleta por defecto (azul, la de City). Se sobreescribe con `style`.
+  --bp-fondo1: rgb(219, 234, 254);
+  --bp-fondo2: rgb(239, 246, 255);
+  --bp-color1: 147, 197, 253;
+  --bp-color2: 96, 165, 250;
+  --bp-color3: 191, 219, 254;
+  --bp-color4: 59, 130, 246;
+
+  // Ancho base de una burbuja, en % del banner. La altura se deriva con
+  // $PROPORCION para que salgan redondas pese a lo achatado del contenedor.
+  --bp-tamano: 16%;
+  // Alpha del centro de cada burbuja. Cercano a 1 porque el umbral del filtro
+  // `goo` recorta por opacidad: un centro translúcido no llegaría a fusionarse.
+  --bp-opacidad: 1;
+
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: linear-gradient(40deg, var(--bp-fondo1), var(--bp-fondo2));
+
+  // El <svg> con la definición del filtro no debe ocupar espacio.
+  svg {
+    position: absolute;
+    width: 0;
+    height: 0;
+  }
+}
+
+.contenedor {
+  width: 100%;
+  height: 100%;
+  // Las manchas salen del filtro totalmente opacas; bajar la opacidad del
+  // conjunto deja respirar el degradado de fondo y mantiene legible el texto
+  // del banner, que va por encima.
+  opacity: 0.88;
+}
+
+// El banner es mucho más ancho que alto, así que un mismo valor en % da óvalos
+// aplastados. Este factor compensa la relación de aspecto aproximada (~3.4:1).
+$PROPORCION: 3.4;
+
+/**
+ * Una burbuja: círculo difuso anclado a un punto del banner.
+ * `translate(-50%, -50%)` en cada keyframe la centra sobre ese punto, así que
+ * los desplazamientos de la animación se aplican sobre el centro.
+ *
+ * $escala  multiplica el tamaño base.
+ *
+ * El degradado mantiene el color opaco hasta el 30% y se apaga en el 50%: ese
+ * halo translúcido es el que, tras el blur del filtro, hace que dos burbujas
+ * cercanas se unan en una sola forma (efecto metaball / lámpara de lava).
+ */
+@mixin burbuja($color, $escala: 1, $alpha: var(--bp-opacidad)) {
+  position: absolute;
+  width: calc(var(--bp-tamano) * #{$escala});
+  height: calc(var(--bp-tamano) * #{$escala} * #{$PROPORCION});
+  background: radial-gradient(circle at center,
+      rgba($color, $alpha) 0,
+      rgba($color, $alpha) 30%,
+      rgba($color, 0) 50%) no-repeat;
+}
+
+/* === Trayectorias ===
+   Cada burbuja tiene su propio recorrido para que el conjunto no se mueva en
+   bloque. Los valores están en % del propio blob, que es pequeño, de ahí las
+   cifras altas. */
+
+@keyframes bpDeriva1 {
+  0% {
+    transform: translate(-50%, -50%);
+  }
+
+  50% {
+    transform: translate(90%, -20%);
+  }
+
+  100% {
+    transform: translate(-50%, -50%);
+  }
+}
+
+@keyframes bpDeriva2 {
+  0% {
+    transform: translate(-50%, -50%);
+  }
+
+  50% {
+    transform: translate(-190%, -85%);
+  }
+
+  100% {
+    transform: translate(-50%, -50%);
+  }
+}
+
+@keyframes bpDeriva3 {
+  0% {
+    transform: translate(-50%, -50%);
+  }
+
+  33% {
+    transform: translate(60%, -100%);
+  }
+
+  66% {
+    transform: translate(-160%, 10%);
+  }
+
+  100% {
+    transform: translate(-50%, -50%);
+  }
+}
+
+@keyframes bpDeriva4 {
+  0% {
+    transform: translate(-50%, -50%);
+  }
+
+  50% {
+    transform: translate(-50%, 45%);
+  }
+
+  100% {
+    transform: translate(-50%, -50%);
+  }
+}
+
+@keyframes bpDeriva5 {
+  0% {
+    transform: translate(-50%, -50%);
+  }
+
+  40% {
+    transform: translate(140%, -75%);
+  }
+
+  70% {
+    transform: translate(30%, 20%);
+  }
+
+  100% {
+    transform: translate(-50%, -50%);
+  }
+}
+
+@keyframes bpDeriva6 {
+  0% {
+    transform: translate(-50%, -50%);
+  }
+
+  50% {
+    transform: translate(-230%, 30%);
+  }
+
+  100% {
+    transform: translate(-50%, -50%);
+  }
+}
+
+@keyframes bpDeriva7 {
+  0% {
+    transform: translate(-50%, -50%);
+  }
+
+  35% {
+    transform: translate(-120%, -95%);
+  }
+
+  75% {
+    transform: translate(110%, 25%);
+  }
+
+  100% {
+    transform: translate(-50%, -50%);
+  }
+}
+
+/* === Burbujas ===
+   Anclajes repartidos por el ancho del banner para que ninguna zona quede vacía. */
+
+.b1 {
+  @include burbuja(var(--bp-color2), 1);
+  left: 18%;
+  top: 42%;
+  animation: bpDeriva1 6s ease-in-out infinite;
+}
+
+.b2 {
+  @include burbuja(var(--bp-color1), 1.35);
+  left: 44%;
+  top: 62%;
+  animation: bpDeriva2 8s ease-in-out infinite;
+}
+
+.b3 {
+  @include burbuja(var(--bp-color4), 0.8);
+  left: 70%;
+  top: 35%;
+  animation: bpDeriva3 5s ease-in-out infinite;
+}
+
+.b4 {
+  @include burbuja(var(--bp-color3), 1.15);
+  left: 88%;
+  top: 60%;
+  animation: bpDeriva4 6.5s ease-in-out infinite;
+}
+
+.b5 {
+  @include burbuja(var(--bp-color2), 0.7);
+  left: 8%;
+  top: 72%;
+  animation: bpDeriva5 5.5s ease-in-out infinite;
+}
+
+.b6 {
+  @include burbuja(var(--bp-color1), 0.95);
+  left: 58%;
+  top: 22%;
+  animation: bpDeriva6 9s ease-in-out infinite;
+}
+
+.b7 {
+  @include burbuja(var(--bp-color4), 0.6);
+  left: 32%;
+  top: 80%;
+  animation: bpDeriva7 4.5s ease-in-out infinite;
+}
+
+// Respeta la preferencia de movimiento reducido del usuario.
+@media (prefers-reduced-motion: reduce) {
+
+  .b1,
+  .b2,
+  .b3,
+  .b4,
+  .b5,
+  .b6,
+  .b7 {
+    animation: none;
+  }
+}
