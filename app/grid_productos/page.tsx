@@ -1,8 +1,8 @@
 // Comparador de precios por proveedor
 import { Suspense } from "react";
 import Link from "next/link";
-import IconoLogin from "../components/IconoLogin";
-import CardSkeleton from "../components/CardSkeleton";
+import IconoLogin from "../ui/shared/IconoLogin";
+import CardSkeleton from "../ui/grid_productos/CardSkeleton";
 
 type Icono = "pastilla" | "frasco" | "tubo" | "caja";
 

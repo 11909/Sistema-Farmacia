@@ -1,5 +1,5 @@
-import GradientBubbles from "../components/GradientBubbles";
-import IconoLogin from "../components/IconoLogin";
+import GradientBubbles from "../ui/login/GradientBubbles";
+import IconoLogin from "../ui/shared/IconoLogin";
 
 export default function LoginLayout({
     children,

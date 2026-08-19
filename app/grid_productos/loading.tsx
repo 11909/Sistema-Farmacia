@@ -1,4 +1,4 @@
-import { CardSkeletonGrid } from "../components/CardSkeleton";
+import { CardSkeletonGrid } from "../ui/grid_productos/CardSkeleton";
 
 /**
  * Fallback de la ruta completa: Next envuelve `page.tsx` en un <Suspense>
