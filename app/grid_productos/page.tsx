@@ -1,6 +1,8 @@
 // Comparador de precios por proveedor
+import { Suspense } from "react";
 import Link from "next/link";
 import IconoLogin from "../components/IconoLogin";
+import CardSkeleton from "../components/CardSkeleton";
 
 type Icono = "pastilla" | "frasco" | "tubo" | "caja";
 
@@ -452,10 +454,16 @@ export default function GridProductos() {
                     medicamentos
                 </p>
 
-                {/* Grid de tarjetas */}
+                {/* Grid de tarjetas.
+                    Cada tarjeta tiene su propio límite de Suspense, así que en
+                    cuanto `TarjetaProducto` pase a leer datos (await a la BD o
+                    a la API de proveedores) cada una podrá hacer streaming por
+                    separado mostrando su esqueleto, sin bloquear a las demás. */}
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
                     {MEDICAMENTOS.map((med) => (
-                        <TarjetaProducto key={med.id} medicamento={med} />
+                        <Suspense key={med.id} fallback={<CardSkeleton />}>
+                            <TarjetaProducto medicamento={med} />
+                        </Suspense>
                     ))}
                 </div>
 
