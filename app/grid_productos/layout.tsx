@@ -96,30 +96,32 @@ export default function GridProductosLayout({
                         </div>
                     </form>
 
-                    <button
-                        type="button"
+                    {/* Un <Link> y no un <button> con un <a> dentro: anidar un
+                        enlace en un botón es HTML inválido y rompe la
+                        navegación de cliente de Next. */}
+                    <Link
+                        href="/grid_productos/carrito"
                         className="relative ml-auto flex items-center gap-2 rounded-lg border border-white/60 bg-white/50 px-5 py-2.5 text-sm font-medium text-gray-700 backdrop-blur-sm transition hover:bg-white/80 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    > <a href="/grid_productos/carrito">
-                            <svg
-                                aria-hidden="true"
-                                className="h-5 w-5"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth={2}
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
-                                />
-                            </svg>
-                            <span className="hidden sm:inline">Carrito</span>
-                            <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-[11px] font-bold text-white">
-                                3
-                            </span>
-                        </a>
-                    </button>
+                    >
+                        <svg
+                            aria-hidden="true"
+                            className="h-5 w-5"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
+                            />
+                        </svg>
+                        <span className="hidden sm:inline">Carrito</span>
+                        <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-[11px] font-bold text-white">
+                            6
+                        </span>
+                    </Link>
                 </div>
             </header>
 
