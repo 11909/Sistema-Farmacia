@@ -1,0 +1,266 @@
+@use "sass:math";
+
+// Versión reducida del efecto de burbujas del login (GradientBubbles), pensada
+// para rellenar el banner de mejor precio de cada tarjeta.
+//
+// Diferencias respecto al original:
+//  - Sin blobs interactivos: no hay listener de `mousemove` ni requestAnimationFrame,
+//    así que el componente puede renderizarse en el servidor. Con 12 tarjetas en
+//    pantalla, replicar el seguimiento del cursor costaría 48 blobs animados por
+//    frame sin aportar nada dentro de una caja de ~100px de alto.
+//  - Burbujas pequeñas que se fusionan (metaball) en vez de dos o tres manchas
+//    enormes: el filtro `goo` del componente aplica un umbral de alfa sobre el
+//    conjunto difuminado.
+//  - Órbitas elípticas generadas en Sass y medidas en unidades de contenedor
+//    (cqw/cqh), así que recorren el ancho completo de la etiqueta.
+//  - Los colores se leen de custom properties para poder teñir el banner con el
+//    color del proveedor ganador desde el componente.
+
+.capa {
+  // Paleta por defecto: fondo blanco y burbujas verdes. La usa cualquier
+  // instancia que no pase `paleta`; el catálogo y el carrito la sobreescriben
+  // con `style` para teñir cada banner con el color de su proveedor.
+  --bp-fondo1: rgb(255, 255, 255);
+  --bp-fondo2: rgb(236, 253, 245);
+  --bp-color1: 110, 231, 183;
+  --bp-color2: 16, 185, 129;
+  --bp-color3: 167, 243, 208;
+  --bp-color4: 5, 150, 105;
+
+  // Ancho base de una burbuja, en % del banner. La altura se deriva con
+  // $PROPORCION para que salgan redondas pese a lo achatado del contenedor, o se
+  // fija directamente con --bp-alto.
+  --bp-tamano: 16%;
+  // Alpha del centro de cada burbuja. Cercano a 1 porque el umbral del filtro
+  // `goo` recorta por opacidad: un centro translúcido no llegaría a fusionarse.
+  --bp-opacidad: 1;
+  // Opacidad del conjunto ya fusionado (ver `.contenedor`).
+  --bp-opacidad-capa: 0.88;
+
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: linear-gradient(40deg, var(--bp-fondo1), var(--bp-fondo2));
+
+  // Convierte la capa en contenedor de consulta: habilita las unidades cqw/cqh
+  // que usan las órbitas. Sin esto no habría forma de expresar "cruza la
+  // etiqueta entera" con transforms, porque un % en `translate` se mide contra
+  // la propia burbuja (~16% del banner), no contra el banner.
+  container-type: size;
+
+  // El <svg> con la definición del filtro no debe ocupar espacio.
+  svg {
+    position: absolute;
+    width: 0;
+    height: 0;
+  }
+}
+
+.contenedor {
+  width: 100%;
+  height: 100%;
+  // Las manchas salen del filtro totalmente opacas; bajar la opacidad del
+  // conjunto deja respirar el degradado de fondo y mantiene legible el texto
+  // del banner, que va por encima.
+  opacity: var(--bp-opacidad-capa, 0.88);
+}
+
+// El contenedor es mucho más ancho que alto, así que un mismo valor en % da
+// óvalos aplastados: el alto se mide contra el alto del contenedor y el ancho
+// contra su ancho. Este factor compensa la relación de aspecto 3.4:1 del banner
+// de mejor precio.
+//
+// Solo funciona con una relación de aspecto conocida y fija. Un contenedor
+// fluido (la cabecera de grupo del carrito, que va de ~6:1 en móvil a ~19:1 en
+// escritorio) pasa `--bp-alto` en cqw: al medir el alto contra el *ancho* del
+// contenedor, igual que el ancho, las burbujas salen redondas en cualquier
+// tamaño de pantalla sin tocar este factor.
+$PROPORCION: 3.4;
+
+/**
+ * Una burbuja: círculo difuso centrado en el punto (50%, 50%) de la etiqueta.
+ * La órbita la desplaza desde ahí.
+ *
+ * $escala  multiplica el tamaño base.
+ *
+ * El degradado mantiene el color opaco hasta el 30% y se apaga en el 50%: ese
+ * halo translúcido es el que, tras el blur del filtro, hace que dos burbujas
+ * cercanas se unan en una sola forma (efecto metaball / lámpara de lava).
+ */
+@mixin burbuja($color, $escala: 1, $alpha: var(--bp-opacidad)) {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(var(--bp-tamano) * #{$escala});
+  height: calc(var(--bp-alto, calc(var(--bp-tamano) * #{$PROPORCION})) * #{$escala});
+  background: radial-gradient(circle at center,
+      rgba($color, $alpha) 0,
+      rgba($color, $alpha) 30%,
+      rgba($color, 0) 50%) no-repeat;
+  // Avisa al compositor: la animación es puramente de transform y puede vivir
+  // en su propia capa, sin repintar el banner en cada frame.
+  will-change: transform;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+/**
+ * Genera los keyframes de una órbita elíptica cerrada.
+ *
+ * Interpolar entre muchos puntos de una elipse con `linear` mantiene la
+ * velocidad constante y el recorrido continuo. Antes había dos o tres waypoints
+ * con `ease-in-out`: la burbuja frenaba hasta cero en cada uno y volvía por el
+ * mismo camino, que es lo que se percibía como movimiento a tirones.
+ *
+ * $rx / $ry  radios en cqw / cqh (la etiqueta mide 100cqw x 100cqh).
+ * $cx / $cy  centro de la órbita, para que no orbiten todas alrededor del medio.
+ * $fase      punto de arranque (0-1), para desincronizarlas.
+ * $pasos     número de muestras: 16 basta para que la elipse no se vea poligonal.
+ */
+@mixin orbita($rx, $ry, $cx: 0, $cy: 0, $fase: 0, $pasos: 16) {
+  @for $i from 0 through $pasos {
+    $t: math.div($i, $pasos);
+    $angulo: (
+      $t + $fase) * 1turn;
+    $x: $cx + $rx * math.cos($angulo
+    );
+  $y: $cy + $ry * math.sin($angulo);
+
+  #{math.percentage($t)} {
+    // El translate(-50%, -50%) compensa el anclaje en (50%, 50%): centra la
+    // burbuja sobre el punto de la órbita en vez de colgarla de su esquina.
+    transform: translate(-50%, -50%) translate(#{$x}cqw, #{$y}cqh);
+  }
+}
+}
+
+/* === Órbitas ===
+   Radios amplios en X (hasta 46cqw) para que las burbujas barran la etiqueta de
+   extremo a extremo, y contenidos en Y para que no se pierdan por arriba y abajo
+   (cada burbuja ya mide ~54cqh de alto). */
+
+@keyframes bpOrbita1 {
+  @include orbita(40, 18);
+}
+
+@keyframes bpOrbita2 {
+  @include orbita(44, 14, -3, 5, 0.35);
+}
+
+@keyframes bpOrbita3 {
+  @include orbita(36, 22, 5, -4, 0.6);
+}
+
+@keyframes bpOrbita4 {
+  @include orbita(46, 12, 0, 6, 0.15);
+}
+
+@keyframes bpOrbita5 {
+  @include orbita(30, 20, -8, 0, 0.8);
+}
+
+@keyframes bpOrbita6 {
+  @include orbita(42, 16, 6, 3, 0.5);
+}
+
+@keyframes bpOrbita7 {
+  @include orbita(34, 24, -4, -5, 0.25);
+}
+
+/* === Burbujas ===
+   Duraciones dispares y algunas en `reverse`: si todas giraran igual y en el
+   mismo sentido, el conjunto se leería como un bloque rotando.
+
+   Todas caen en la franja 13-17s, repartidas según el tamaño: la más grande gira
+   en 16.9s y la más pequeña en 13s. Que las masas grandes se muevan despacio y
+   las chicas algo más rápido es lo que da la sensación de peso de una lámpara de
+   lava.
+
+   Los decimales son a propósito: con valores redondos que comparten múltiplo, las
+   burbujas volverían a alinearse cada pocos ciclos y se vería la repetición. */
+
+.b1 {
+  @include burbuja(var(--bp-color2), 1);
+  animation-name: bpOrbita1;
+  animation-duration: 15.2s;
+}
+
+.b2 {
+  @include burbuja(var(--bp-color1), 1.35);
+  animation-name: bpOrbita2;
+  animation-duration: 16.9s;
+  animation-direction: reverse;
+}
+
+.b3 {
+  @include burbuja(var(--bp-color4), 0.8);
+  animation-name: bpOrbita3;
+  animation-duration: 14.1s;
+}
+
+.b4 {
+  @include burbuja(var(--bp-color3), 1.15);
+  animation-name: bpOrbita4;
+  animation-duration: 16.1s;
+  animation-direction: reverse;
+}
+
+.b5 {
+  @include burbuja(var(--bp-color2), 0.7);
+  animation-name: bpOrbita5;
+  animation-duration: 13.4s;
+}
+
+.b6 {
+  @include burbuja(var(--bp-color1), 0.95);
+  animation-name: bpOrbita6;
+  animation-duration: 14.6s;
+}
+
+.b7 {
+  @include burbuja(var(--bp-color4), 0.6);
+  animation-name: bpOrbita7;
+  animation-duration: 13s;
+  animation-direction: reverse;
+}
+
+// Respeta la preferencia de movimiento reducido del usuario.
+@media (prefers-reduced-motion: reduce) {
+
+  .b1,
+  .b2,
+  .b3,
+  .b4,
+  .b5,
+  .b6,
+  .b7 {
+    animation: none;
+    // Sin animación no se aplicaría ningún keyframe y las siete quedarían
+    // apiladas en el centro exacto de la etiqueta.
+    transform: translate(-50%, -50%);
+  }
+
+  .b2 {
+    transform: translate(-50%, -50%) translate(-30cqw, 8cqh);
+  }
+
+  .b3 {
+    transform: translate(-50%, -50%) translate(28cqw, -10cqh);
+  }
+
+  .b4 {
+    transform: translate(-50%, -50%) translate(-14cqw, 14cqh);
+  }
+
+  .b5 {
+    transform: translate(-50%, -50%) translate(38cqw, 6cqh);
+  }
+
+  .b6 {
+    transform: translate(-50%, -50%) translate(14cqw, -12cqh);
+  }
+
+  .b7 {
+    transform: translate(-50%, -50%) translate(-40cqw, -4cqh);
+  }
+}
