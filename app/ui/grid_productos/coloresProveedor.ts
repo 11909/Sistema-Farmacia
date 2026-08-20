@@ -22,6 +22,15 @@ export type ColoresProveedor = {
     fila: string;
     /** Guion separador de la fila ganadora. */
     guion: string;
+    /**
+     * Relleno y anillo del cristal de los chips que van encima de las burbujas
+     * (ver `ChipCristal` en `CarritoCliente`).
+     *
+     * El tinte sigue la luminosidad de la paleta, no el gusto: un velo blanco
+     * sobre las burbujas oscuras de Farmater las aclararía y el texto blanco del
+     * grupo perdería contraste, así que ahí el cristal es ahumado.
+     */
+    cristal: string;
 };
 
 export const COLOR_PROVEEDOR: Record<string, ColoresProveedor> = {
@@ -38,6 +47,7 @@ export const COLOR_PROVEEDOR: Record<string, ColoresProveedor> = {
         insignia: "bg-blue-600 text-white",
         fila: "bg-blue-50",
         guion: "border-blue-300",
+        cristal: "bg-white/40 ring-white/60",
     },
     Farmater: {
         // Único caso con texto claro. Tras el umbral del filtro las manchas
@@ -55,6 +65,8 @@ export const COLOR_PROVEEDOR: Record<string, ColoresProveedor> = {
         insignia: "bg-neutral-800 text-white",
         fila: "bg-neutral-100",
         guion: "border-neutral-400",
+        // Cristal ahumado: aquí el texto del grupo es blanco.
+        cristal: "bg-black/25 ring-white/25",
     },
     Ofasa: {
         banner: "text-orange-950",
@@ -69,6 +81,7 @@ export const COLOR_PROVEEDOR: Record<string, ColoresProveedor> = {
         insignia: "bg-orange-500 text-white",
         fila: "bg-orange-50",
         guion: "border-orange-300",
+        cristal: "bg-white/45 ring-white/70",
     },
     Tenorio: {
         banner: "text-amber-950",
@@ -83,6 +96,7 @@ export const COLOR_PROVEEDOR: Record<string, ColoresProveedor> = {
         insignia: "bg-amber-400 text-amber-950",
         fila: "bg-amber-50",
         guion: "border-amber-400",
+        cristal: "bg-white/45 ring-white/70",
     },
 };
 
@@ -100,6 +114,7 @@ export const COLOR_NEUTRO: ColoresProveedor = {
     insignia: "bg-gray-500 text-white",
     fila: "bg-gray-50",
     guion: "border-gray-300",
+    cristal: "bg-white/45 ring-white/60",
 };
 
 /** Paleta del proveedor, con respaldo neutro si el nombre no está registrado. */

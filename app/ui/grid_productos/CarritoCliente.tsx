@@ -87,23 +87,55 @@ function IconoBasura() {
 }
 
 /**
- * Etiqueta con el nombre del proveedor.
+ * Lámina de cristal líquido para los datos que van sobre las burbujas de la
+ * cabecera de grupo.
  *
- * Va sobre la cabecera con burbujas, así que en vez del color sólido de la
- * insignia se dibuja con `currentColor`: hereda el color de texto del grupo y
- * contrasta igual sobre las paletas claras (texto oscuro) y sobre la de Farmater
- * (texto blanco), sin necesitar un caso por proveedor.
- *
- * Sin relleno a propósito. Un `bg-current/10` compila con un fallback
- * `background-color: currentColor` para navegadores sin `color-mix()`, y ahí la
- * píldora quedaría del mismo color que su texto: ilegible. Perfilada solo con el
- * anillo no tiene ese modo de fallo.
+ * La receta son cuatro capas: el velo translúcido y el anillo (los aporta la
+ * paleta vía `cristal`, porque el tinte tiene que seguir la luminosidad del
+ * proveedor), el `backdrop-blur` que difumina las burbujas justo detrás del chip
+ * —de ahí la lectura de vidrio, y lo que despega el dato del fondo en
+ * movimiento— y un box-shadow doble: el bisel interior claro arriba simula el
+ * canto del cristal y la sombra exterior baja lo levanta del banner.
  */
-function EtiquetaProveedor({ proveedor }: { proveedor: string }) {
+function ChipCristal({
+    cristal,
+    className = "",
+    children,
+}: {
+    cristal: string;
+    className?: string;
+    children: React.ReactNode;
+}) {
     return (
-        <span className="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.08em] ring-1 ring-inset ring-current">
-            {proveedor}
+        <span
+            className={`inline-flex items-center rounded-full ring-1 ring-inset backdrop-blur-md backdrop-saturate-150 shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_1px_2px_rgba(15,23,42,0.10)] ${cristal} ${className}`}
+        >
+            {children}
         </span>
+    );
+}
+
+/**
+ * Etiqueta con el nombre del proveedor, sobre cristal.
+ *
+ * El texto va en `currentColor`: hereda el color del grupo y contrasta tanto
+ * sobre las paletas claras (texto oscuro) como sobre la de Farmater (blanco),
+ * sin necesitar un caso por proveedor.
+ */
+function EtiquetaProveedor({
+    proveedor,
+    cristal,
+}: {
+    proveedor: string;
+    cristal: string;
+}) {
+    return (
+        <ChipCristal
+            cristal={cristal}
+            className="px-3 py-1 text-[11px] font-bold uppercase tracking-[0.08em]"
+        >
+            {proveedor}
+        </ChipCristal>
     );
 }
 
@@ -409,19 +441,28 @@ export default function CarritoCliente({
                                     />
                                 </div>
 
-                                <EtiquetaProveedor proveedor={grupo.proveedor} />
-                                <span className="text-[13px] font-medium opacity-75">
+                                <EtiquetaProveedor
+                                    proveedor={grupo.proveedor}
+                                    cristal={colores.cristal}
+                                />
+                                <ChipCristal
+                                    cristal={colores.cristal}
+                                    className="px-2.5 py-1 text-[13px] font-medium"
+                                >
                                     {grupo.items.length}{" "}
                                     {grupo.items.length === 1 ? "producto" : "productos"} ·{" "}
                                     {grupo.piezas} {grupo.piezas === 1 ? "pieza" : "piezas"}
-                                </span>
+                                </ChipCristal>
                                 <span
                                     aria-hidden="true"
                                     className="min-w-4 flex-1 border-t border-dashed border-current opacity-30"
                                 />
-                                <span className="font-mono text-sm font-bold tabular-nums">
+                                <ChipCristal
+                                    cristal={colores.cristal}
+                                    className="px-3 py-1 font-mono text-sm font-bold tabular-nums"
+                                >
                                     {formatoPrecio(grupo.subtotal)}
-                                </span>
+                                </ChipCristal>
                             </header>
 
                             <ul className="divide-y divide-gray-100">
