@@ -26,11 +26,13 @@
   --bp-color4: 59, 130, 246;
 
   // Ancho base de una burbuja, en % del banner. La altura se deriva con
-  // $PROPORCION para que salgan redondas pese a lo achatado del contenedor.
+  // --bp-proporcion para que salgan redondas pese a lo achatado del contenedor.
   --bp-tamano: 16%;
   // Alpha del centro de cada burbuja. Cercano a 1 porque el umbral del filtro
   // `goo` recorta por opacidad: un centro translúcido no llegaría a fusionarse.
   --bp-opacidad: 1;
+  // Opacidad del conjunto ya fusionado (ver `.contenedor`).
+  --bp-opacidad-capa: 0.88;
 
   position: absolute;
   inset: 0;
@@ -57,11 +59,13 @@
   // Las manchas salen del filtro totalmente opacas; bajar la opacidad del
   // conjunto deja respirar el degradado de fondo y mantiene legible el texto
   // del banner, que va por encima.
-  opacity: 0.88;
+  opacity: var(--bp-opacidad-capa, 0.88);
 }
 
-// El banner es mucho más ancho que alto, así que un mismo valor en % da óvalos
-// aplastados. Este factor compensa la relación de aspecto aproximada (~3.4:1).
+// El contenedor es mucho más ancho que alto, así que un mismo valor en % da
+// óvalos aplastados. Este factor compensa la relación de aspecto: 3.4:1, la del
+// banner de mejor precio. Contenedores con otra forma (la etiqueta de proveedor
+// del carrito, casi 5:1) lo ajustan vía `--bp-proporcion`.
 $PROPORCION: 3.4;
 
 /**
@@ -79,7 +83,7 @@ $PROPORCION: 3.4;
   left: 50%;
   top: 50%;
   width: calc(var(--bp-tamano) * #{$escala});
-  height: calc(var(--bp-tamano) * #{$escala} * #{$PROPORCION});
+  height: calc(var(--bp-tamano) * #{$escala} * var(--bp-proporcion, #{$PROPORCION}));
   background: radial-gradient(circle at center,
       rgba($color, $alpha) 0,
       rgba($color, $alpha) 30%,

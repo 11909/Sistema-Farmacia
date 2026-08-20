@@ -16,11 +16,36 @@ type BurbujasPrecioProps = {
     idFiltro: string;
     /** Custom properties que tiñen las burbujas (ver `PaletaBurbujas`). */
     paleta: PaletaBurbujas;
+    /** Ancho base de cada burbuja, en % del contenedor. */
+    tamano?: string;
+    /**
+     * Compensación de la relación de aspecto del contenedor (ancho / alto). Con
+     * el valor correcto las burbujas salen redondas; por debajo quedan
+     * aplastadas y por encima estiradas en vertical.
+     */
+    proporcion?: number;
+    /**
+     * Radio del difuminado previo al umbral, en px. **Es la medida crítica al
+     * cambiar de tamaño de contenedor**: al ser absoluta, un valor pensado para
+     * un banner de ~100 px de alto disuelve por completo las burbujas de una
+     * etiqueta de ~20 px (el alfa cae por debajo del umbral y no se dibuja
+     * nada). Como regla, en torno a un 10% del lado menor del contenedor.
+     */
+    desenfoque?: number;
+    /** Blur mínimo posterior al umbral, que quita el aliasing del recorte. */
+    suavizado?: number;
+    /** Blur extra sobre el conjunto ya fusionado, en px. */
+    desenfoqueExtra?: number;
+    /** Opacidad del conjunto fusionado; deja respirar el degradado de fondo. */
+    opacidad?: number;
 };
 
 /**
- * Fondo animado de burbujas para el banner de mejor precio, derivado del efecto
- * del login (`app/ui/login/GradientBubbles.tsx`).
+ * Fondo animado de burbujas, derivado del efecto del login
+ * (`app/ui/login/GradientBubbles.tsx`).
+ *
+ * Se usa en el banner de mejor precio del catálogo y, con los parámetros
+ * reescalados, en la etiqueta de proveedor del carrito.
  *
  * Aquí no hay interacción con el cursor, así que es un componente de servidor:
  * todo el movimiento es CSS y no manda un byte de JavaScript al cliente.
@@ -32,9 +57,22 @@ type BurbujasPrecioProps = {
 export default function BurbujasPrecio({
     idFiltro,
     paleta,
+    tamano,
+    proporcion,
+    desenfoque = 9,
+    suavizado = 1.2,
+    desenfoqueExtra = 2,
+    opacidad,
 }: BurbujasPrecioProps) {
+    // Las medidas viajan como custom properties para no duplicar el SCSS: si no
+    // se pasan, el módulo aplica los valores del banner.
+    const estilo: PaletaBurbujas = { ...paleta };
+    if (tamano !== undefined) estilo["--bp-tamano"] = tamano;
+    if (proporcion !== undefined) estilo["--bp-proporcion"] = String(proporcion);
+    if (opacidad !== undefined) estilo["--bp-opacidad-capa"] = String(opacidad);
+
     return (
-        <div className={styles.capa} style={paleta} aria-hidden="true">
+        <div className={styles.capa} style={estilo} aria-hidden="true">
             {/* La definición del filtro tiene que vivir en el árbol para que
                 url(#id) la resuelva. */}
             <svg xmlns="http://www.w3.org/2000/svg" focusable="false">
@@ -54,7 +92,7 @@ export default function BurbujasPrecio({
                                burbujas vecinas se solapen. */}
                         <feGaussianBlur
                             in="SourceGraphic"
-                            stdDeviation="9"
+                            stdDeviation={desenfoque}
                             result="difuminado"
                         />
                         {/* 2. Umbral sobre el canal alfa (alpha * 26 - 12): lo
@@ -72,14 +110,14 @@ export default function BurbujasPrecio({
                                deshacer la silueta. Sin `feBlend` con el original:
                                reponer las burbujas sueltas encima delataría el
                                truco y rompería el aspecto de lava. */}
-                        <feGaussianBlur in="fusion" stdDeviation="1.2" />
+                        <feGaussianBlur in="fusion" stdDeviation={suavizado} />
                     </filter>
                 </defs>
             </svg>
 
             <div
                 className={styles.contenedor}
-                style={{ filter: `url(#${idFiltro}) blur(2px)` }}
+                style={{ filter: `url(#${idFiltro}) blur(${desenfoqueExtra}px)` }}
             >
                 <div className={styles.b1} />
                 <div className={styles.b2} />

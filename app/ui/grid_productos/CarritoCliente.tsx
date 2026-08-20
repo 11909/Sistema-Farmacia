@@ -86,16 +86,41 @@ function IconoBasura() {
     );
 }
 
-/** Etiqueta con el color del proveedor, igual que la insignia del ranking. */
+/**
+ * Etiqueta con el color del proveedor, con el mismo fondo de burbujas animadas
+ * que el banner de mejor precio del catálogo.
+ *
+ * Los parámetros del efecto van reescalados a mano porque la etiqueta es una
+ * píldora de ~24 px de alto: el `stdDeviation` del filtro está en px absolutos y
+ * el 9 del banner difuminaría las burbujas por debajo del umbral de alfa,
+ * dejando la píldora vacía. La proporción también cambia (~3.8:1 aquí) para que
+ * las burbujas sigan saliendo redondas.
+ */
 function EtiquetaProveedor({ proveedor }: { proveedor: string }) {
     const colores = coloresDe(proveedor);
 
     return (
-        <span
-            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-[0.08em] ${colores.insignia}`}
+        // <div> y no <span> porque el efecto monta <div> y <svg>: un <span>
+        // solo admite contenido de frase.
+        <div
+            className={`relative isolate inline-flex items-center overflow-hidden rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.08em] ${colores.banner}`}
         >
+            {/* `isolate` + `-z-10`: el fondo queda detrás del nombre sin salirse
+                de la píldora, que lo recorta con su propio border-radius. */}
+            <div className="absolute inset-0 -z-10">
+                <BurbujasPrecio
+                    idFiltro={`goo-proveedor-${proveedor.toLowerCase()}`}
+                    paleta={colores.burbujas}
+                    tamano="20%"
+                    proporcion={3.8}
+                    desenfoque={2.5}
+                    suavizado={0.4}
+                    desenfoqueExtra={0.5}
+                    opacidad={0.95}
+                />
+            </div>
             {proveedor}
-        </span>
+        </div>
     );
 }
 
