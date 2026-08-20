@@ -26,7 +26,8 @@
   --bp-color4: 59, 130, 246;
 
   // Ancho base de una burbuja, en % del banner. La altura se deriva con
-  // --bp-proporcion para que salgan redondas pese a lo achatado del contenedor.
+  // $PROPORCION para que salgan redondas pese a lo achatado del contenedor, o se
+  // fija directamente con --bp-alto.
   --bp-tamano: 16%;
   // Alpha del centro de cada burbuja. Cercano a 1 porque el umbral del filtro
   // `goo` recorta por opacidad: un centro translúcido no llegaría a fusionarse.
@@ -63,9 +64,15 @@
 }
 
 // El contenedor es mucho más ancho que alto, así que un mismo valor en % da
-// óvalos aplastados. Este factor compensa la relación de aspecto: 3.4:1, la del
-// banner de mejor precio. Contenedores con otra forma (la etiqueta de proveedor
-// del carrito, casi 5:1) lo ajustan vía `--bp-proporcion`.
+// óvalos aplastados: el alto se mide contra el alto del contenedor y el ancho
+// contra su ancho. Este factor compensa la relación de aspecto 3.4:1 del banner
+// de mejor precio.
+//
+// Solo funciona con una relación de aspecto conocida y fija. Un contenedor
+// fluido (la cabecera de grupo del carrito, que va de ~6:1 en móvil a ~19:1 en
+// escritorio) pasa `--bp-alto` en cqw: al medir el alto contra el *ancho* del
+// contenedor, igual que el ancho, las burbujas salen redondas en cualquier
+// tamaño de pantalla sin tocar este factor.
 $PROPORCION: 3.4;
 
 /**
@@ -83,7 +90,7 @@ $PROPORCION: 3.4;
   left: 50%;
   top: 50%;
   width: calc(var(--bp-tamano) * #{$escala});
-  height: calc(var(--bp-tamano) * #{$escala} * var(--bp-proporcion, #{$PROPORCION}));
+  height: calc(var(--bp-alto, calc(var(--bp-tamano) * #{$PROPORCION})) * #{$escala});
   background: radial-gradient(circle at center,
       rgba($color, $alpha) 0,
       rgba($color, $alpha) 30%,

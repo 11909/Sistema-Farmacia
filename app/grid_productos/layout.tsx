@@ -55,7 +55,7 @@ export default function GridProductosLayout({
                 />
 
                 <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-4 sm:px-6 lg:px-8">
-                    <Link href="/" className="flex items-center gap-2">
+                    <Link href="/grid_productos" className="flex items-center gap-2">
                         <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-white">
                             <IconoLogin />
                         </span>

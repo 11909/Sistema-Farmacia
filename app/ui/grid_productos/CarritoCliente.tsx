@@ -87,40 +87,23 @@ function IconoBasura() {
 }
 
 /**
- * Etiqueta con el color del proveedor, con el mismo fondo de burbujas animadas
- * que el banner de mejor precio del catálogo.
+ * Etiqueta con el nombre del proveedor.
  *
- * Los parámetros del efecto van reescalados a mano porque la etiqueta es una
- * píldora de ~24 px de alto: el `stdDeviation` del filtro está en px absolutos y
- * el 9 del banner difuminaría las burbujas por debajo del umbral de alfa,
- * dejando la píldora vacía. La proporción también cambia (~3.8:1 aquí) para que
- * las burbujas sigan saliendo redondas.
+ * Va sobre la cabecera con burbujas, así que en vez del color sólido de la
+ * insignia se dibuja con `currentColor`: hereda el color de texto del grupo y
+ * contrasta igual sobre las paletas claras (texto oscuro) y sobre la de Farmater
+ * (texto blanco), sin necesitar un caso por proveedor.
+ *
+ * Sin relleno a propósito. Un `bg-current/10` compila con un fallback
+ * `background-color: currentColor` para navegadores sin `color-mix()`, y ahí la
+ * píldora quedaría del mismo color que su texto: ilegible. Perfilada solo con el
+ * anillo no tiene ese modo de fallo.
  */
 function EtiquetaProveedor({ proveedor }: { proveedor: string }) {
-    const colores = coloresDe(proveedor);
-
     return (
-        // <div> y no <span> porque el efecto monta <div> y <svg>: un <span>
-        // solo admite contenido de frase.
-        <div
-            className={`relative isolate inline-flex items-center overflow-hidden rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.08em] ${colores.banner}`}
-        >
-            {/* `isolate` + `-z-10`: el fondo queda detrás del nombre sin salirse
-                de la píldora, que lo recorta con su propio border-radius. */}
-            <div className="absolute inset-0 -z-10">
-                <BurbujasPrecio
-                    idFiltro={`goo-proveedor-${proveedor.toLowerCase()}`}
-                    paleta={colores.burbujas}
-                    tamano="20%"
-                    proporcion={3.8}
-                    desenfoque={2.5}
-                    suavizado={0.4}
-                    desenfoqueExtra={0.5}
-                    opacidad={0.95}
-                />
-            </div>
+        <span className="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.08em] ring-1 ring-inset ring-current">
             {proveedor}
-        </div>
+        </span>
     );
 }
 
@@ -398,20 +381,45 @@ export default function CarritoCliente({
                             aria-label={`Productos de ${grupo.proveedor}`}
                             className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-gray-200/80 transition duration-200 hover:shadow-xl hover:shadow-gray-900/5 hover:ring-gray-300"
                         >
+                            {/* Cabecera del grupo con el fondo de burbujas del
+                                banner de mejor precio, teñido con el color del
+                                proveedor. El texto usa `colores.banner` y
+                                opacidades de `currentColor`, como en el banner:
+                                así contrasta tanto sobre las paletas claras como
+                                sobre la oscura de Farmater. */}
                             <header
-                                className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 px-5 py-4 sm:px-7 ${colores.fila}`}
+                                className={`relative isolate flex flex-wrap items-center gap-x-3 gap-y-1.5 overflow-hidden px-5 py-4 sm:px-7 ${colores.banner}`}
                             >
+                                <div className="absolute inset-0 -z-10">
+                                    <BurbujasPrecio
+                                        idFiltro={`goo-grupo-${grupo.proveedor.toLowerCase()}`}
+                                        paleta={colores.burbujas}
+                                        // Burbujas de ~34 px con un suelo en px:
+                                        // el 4.5% solo manda en pantallas anchas
+                                        // y en móvil no se quedan en puntitos.
+                                        tamano="max(34px, 4.5%)"
+                                        alto="max(34px, 4.5cqw)"
+                                        // El desenfoque va en px absolutos: hay
+                                        // que bajarlo del 9 del banner o el
+                                        // umbral de alfa se come las burbujas en
+                                        // una tira de ~55 px de alto.
+                                        desenfoque={5}
+                                        suavizado={0.8}
+                                        desenfoqueExtra={1}
+                                    />
+                                </div>
+
                                 <EtiquetaProveedor proveedor={grupo.proveedor} />
-                                <span className="text-[13px] font-medium text-gray-500">
+                                <span className="text-[13px] font-medium opacity-75">
                                     {grupo.items.length}{" "}
                                     {grupo.items.length === 1 ? "producto" : "productos"} ·{" "}
                                     {grupo.piezas} {grupo.piezas === 1 ? "pieza" : "piezas"}
                                 </span>
                                 <span
                                     aria-hidden="true"
-                                    className={`min-w-4 flex-1 border-t border-dashed ${colores.guion}`}
+                                    className="min-w-4 flex-1 border-t border-dashed border-current opacity-30"
                                 />
-                                <span className="font-mono text-sm font-bold tabular-nums text-gray-900">
+                                <span className="font-mono text-sm font-bold tabular-nums">
                                     {formatoPrecio(grupo.subtotal)}
                                 </span>
                             </header>

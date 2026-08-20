@@ -16,14 +16,18 @@ type BurbujasPrecioProps = {
     idFiltro: string;
     /** Custom properties que tiñen las burbujas (ver `PaletaBurbujas`). */
     paleta: PaletaBurbujas;
-    /** Ancho base de cada burbuja, en % del contenedor. */
+    /** Ancho base de cada burbuja, en % del ancho del contenedor. */
     tamano?: string;
     /**
-     * Compensación de la relación de aspecto del contenedor (ancho / alto). Con
-     * el valor correcto las burbujas salen redondas; por debajo quedan
-     * aplastadas y por encima estiradas en vertical.
+     * Alto base de cada burbuja. Por defecto se deriva de `tamano` con la
+     * relación de aspecto del banner (3.4:1), que solo sirve si el contenedor
+     * mantiene esa forma.
+     *
+     * En un contenedor fluido conviene darlo en `cqw` con el mismo número que
+     * `tamano`: al medirse contra el ancho, las burbujas salen redondas a
+     * cualquier ancho de pantalla.
      */
-    proporcion?: number;
+    alto?: string;
     /**
      * Radio del difuminado previo al umbral, en px. **Es la medida crítica al
      * cambiar de tamaño de contenedor**: al ser absoluta, un valor pensado para
@@ -45,7 +49,7 @@ type BurbujasPrecioProps = {
  * (`app/ui/login/GradientBubbles.tsx`).
  *
  * Se usa en el banner de mejor precio del catálogo y, con los parámetros
- * reescalados, en la etiqueta de proveedor del carrito.
+ * reescalados, en la cabecera de cada grupo de proveedor del carrito.
  *
  * Aquí no hay interacción con el cursor, así que es un componente de servidor:
  * todo el movimiento es CSS y no manda un byte de JavaScript al cliente.
@@ -58,7 +62,7 @@ export default function BurbujasPrecio({
     idFiltro,
     paleta,
     tamano,
-    proporcion,
+    alto,
     desenfoque = 9,
     suavizado = 1.2,
     desenfoqueExtra = 2,
@@ -68,7 +72,7 @@ export default function BurbujasPrecio({
     // se pasan, el módulo aplica los valores del banner.
     const estilo: PaletaBurbujas = { ...paleta };
     if (tamano !== undefined) estilo["--bp-tamano"] = tamano;
-    if (proporcion !== undefined) estilo["--bp-proporcion"] = String(proporcion);
+    if (alto !== undefined) estilo["--bp-alto"] = alto;
     if (opacidad !== undefined) estilo["--bp-opacidad-capa"] = String(opacidad);
 
     return (
