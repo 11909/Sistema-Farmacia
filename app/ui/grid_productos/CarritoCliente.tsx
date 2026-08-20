@@ -398,8 +398,6 @@ export default function CarritoCliente({
 
     if (lineas.length === 0) return <CarritoVacio />;
 
-    const coloresResumen = coloresDe(grupos[0]?.proveedor);
-
     return (
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
             {/* Partidas del pedido, agrupadas por proveedor */}
@@ -516,16 +514,16 @@ export default function CarritoCliente({
                 <div className="rounded-3xl bg-white p-7 shadow-sm ring-1 ring-gray-200/80">
                     <h2 className="text-lg font-bold text-gray-900">Resumen del pedido</h2>
 
-                    {/* Total, con el mismo banner de burbujas del mejor precio del
-                        catálogo, teñido con el proveedor de mayor peso. */}
-                    <div
-                        className={`relative isolate mt-4 overflow-hidden rounded-2xl px-5 py-4 ${coloresResumen.banner}`}
-                    >
+                    {/* Total, con el banner de burbujas del catálogo pero sin
+                        `paleta`: usa la propia del efecto (fondo blanco,
+                        burbujas verdes). El pedido suma varios proveedores, así
+                        que teñirlo con el color de uno de ellos daría a entender
+                        que el total es solo suyo. Texto oscuro fijo, no
+                        `colores.banner`: sobre este fondo claro el blanco de
+                        Farmater desaparecería. */}
+                    <div className="relative isolate mt-4 overflow-hidden rounded-2xl px-5 py-4 text-emerald-950">
                         <div className="absolute inset-0 -z-10">
-                            <BurbujasPrecio
-                                idFiltro="goo-carrito-total"
-                                paleta={coloresResumen.burbujas}
-                            />
+                            <BurbujasPrecio idFiltro="goo-carrito-total" />
                         </div>
 
                         <div className="flex items-start justify-between gap-2">

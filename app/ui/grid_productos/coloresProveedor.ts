@@ -10,6 +10,10 @@ import type { PaletaBurbujas } from "./BurbujasPrecio";
  * gana la comparación y de quién es cada partida del pedido.
  *
  * City -> azul, Ofasa -> naranja, Farmater -> negro, Tenorio -> amarillo.
+ *
+ * La excepción es el total del resumen del carrito: ahí el pedido es de varios
+ * proveedores a la vez, así que no usa ninguna de estas paletas y deja a
+ * `BurbujasPrecio` pintar la suya (fondo blanco, burbujas verdes).
  */
 export type ColoresProveedor = {
     /** Color de texto del banner de mejor precio (el fondo lo pintan las burbujas). */

@@ -14,8 +14,12 @@ type BurbujasPrecioProps = {
      * que todos los banners resolvieran al mismo filtro.
      */
     idFiltro: string;
-    /** Custom properties que tiñen las burbujas (ver `PaletaBurbujas`). */
-    paleta: PaletaBurbujas;
+    /**
+     * Custom properties que tiñen las burbujas (ver `PaletaBurbujas`). Si se
+     * omite, el módulo aplica su paleta por defecto: fondo blanco y burbujas
+     * verdes.
+     */
+    paleta?: PaletaBurbujas;
     /** Ancho base de cada burbuja, en % del ancho del contenedor. */
     tamano?: string;
     /**
@@ -60,7 +64,7 @@ type BurbujasPrecioProps = {
  */
 export default function BurbujasPrecio({
     idFiltro,
-    paleta,
+    paleta = {},
     tamano,
     alto,
     desenfoque = 9,

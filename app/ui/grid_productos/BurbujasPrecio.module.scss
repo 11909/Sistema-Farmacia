@@ -17,13 +17,15 @@
 //    color del proveedor ganador desde el componente.
 
 .capa {
-  // Paleta por defecto (azul, la de City). Se sobreescribe con `style`.
-  --bp-fondo1: rgb(219, 234, 254);
-  --bp-fondo2: rgb(239, 246, 255);
-  --bp-color1: 147, 197, 253;
-  --bp-color2: 96, 165, 250;
-  --bp-color3: 191, 219, 254;
-  --bp-color4: 59, 130, 246;
+  // Paleta por defecto: fondo blanco y burbujas verdes. La usa cualquier
+  // instancia que no pase `paleta`; el catálogo y el carrito la sobreescriben
+  // con `style` para teñir cada banner con el color de su proveedor.
+  --bp-fondo1: rgb(255, 255, 255);
+  --bp-fondo2: rgb(236, 253, 245);
+  --bp-color1: 110, 231, 183;
+  --bp-color2: 16, 185, 129;
+  --bp-color3: 167, 243, 208;
+  --bp-color4: 5, 150, 105;
 
   // Ancho base de una burbuja, en % del banner. La altura se deriva con
   // $PROPORCION para que salgan redondas pese a lo achatado del contenedor, o se
