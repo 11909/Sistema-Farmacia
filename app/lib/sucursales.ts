@@ -1,4 +1,3 @@
-import { leerFilas } from "./sheets";
 import {
     normalizarEmail,
     nombreParaMostrar,
@@ -15,8 +14,8 @@ import {
  * distinto (aquí `contrasena` va en D). De ahí que cada pestaña tenga su propio
  * mapeo en lugar de compartir uno.
  */
-const RANGO = "Sucursal!A2:E";
-const TOTAL_COLUMNAS = 5;
+export const RANGO_SUCURSALES = "Sucursal!A2:E";
+export const COLUMNAS_SUCURSALES = 5;
 
 const COL = {
     email: 0,
@@ -27,16 +26,18 @@ const COL = {
 } as const;
 
 /**
- * Busca una sucursal por correo. Devuelve la cuenta junto a su contraseña sin
- * verificar; la comparación la hace `intentarAcceso` en `cuentas.ts`.
+ * Busca una sucursal por correo dentro de filas ya leídas.
+ *
+ * Igual que en `administradores.ts`, recibe las filas para que `cuentas.ts`
+ * pueda leer ambas pestañas en una sola petición.
  */
-export async function buscarSucursal(
+export function buscarSucursalEnFilas(
+    filas: string[][],
     email: string,
-): Promise<CuentaConCredencial | null> {
+): CuentaConCredencial | null {
     const emailBuscado = normalizarEmail(email);
     if (!emailBuscado) return null;
 
-    const filas = await leerFilas(RANGO, TOTAL_COLUMNAS);
     const fila = filas.find(
         (f) => normalizarEmail(f[COL.email]) === emailBuscado,
     );

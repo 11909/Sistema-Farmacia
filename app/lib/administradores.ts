@@ -1,4 +1,3 @@
-import { leerFilas } from "./sheets";
 import {
     normalizarEmail,
     nombreParaMostrar,
@@ -14,8 +13,8 @@ import {
  *
  * Si se reordenan las columnas en la hoja, actualiza `COL`.
  */
-const RANGO = "Administrador!A2:F";
-const TOTAL_COLUMNAS = 6;
+export const RANGO_ADMINISTRADORES = "Administrador!A2:F";
+export const COLUMNAS_ADMINISTRADORES = 6;
 
 const COL = {
     email: 0,
@@ -27,16 +26,21 @@ const COL = {
 } as const;
 
 /**
- * Busca un administrador por correo. Devuelve la cuenta junto a su contraseña
- * sin verificar; la comparación la hace `intentarAcceso` en `cuentas.ts`.
+ * Busca un administrador por correo dentro de filas ya leídas.
+ *
+ * Recibe las filas en lugar de leerlas para que `cuentas.ts` pueda traer esta
+ * pestaña y la de sucursales en una sola petición a la API.
+ *
+ * Devuelve la cuenta junto a su contraseña sin verificar; la comparación la
+ * hace `intentarAcceso`.
  */
-export async function buscarAdministrador(
+export function buscarAdministradorEnFilas(
+    filas: string[][],
     email: string,
-): Promise<CuentaConCredencial | null> {
+): CuentaConCredencial | null {
     const emailBuscado = normalizarEmail(email);
     if (!emailBuscado) return null;
 
-    const filas = await leerFilas(RANGO, TOTAL_COLUMNAS);
     const fila = filas.find(
         (f) => normalizarEmail(f[COL.email]) === emailBuscado,
     );

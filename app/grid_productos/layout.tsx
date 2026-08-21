@@ -2,6 +2,7 @@ import Link from "next/link";
 import IconoLogin from "../ui/shared/IconoLogin";
 import BotonCerrarSesion from "../ui/shared/BotonCerrarSesion";
 import { requerirSesion } from "../lib/sesion";
+import { contarPiezas } from "../lib/carrito";
 
 /**
  * Layout del segmento /grid_productos.
@@ -21,6 +22,7 @@ export default async function GridProductosLayout({
     // El layout corre antes que sus páginas hijas, así que esto cubre
     // /grid_productos y /grid_productos/carrito con una sola comprobación.
     const sesion = await requerirSesion("/grid_productos");
+    const piezas = await contarPiezas(sesion.user!.email!);
 
     return (
         <div className="relative min-h-screen font-sans">
@@ -125,9 +127,14 @@ export default async function GridProductosLayout({
                             />
                         </svg>
                         <span className="hidden sm:inline">Carrito</span>
-                        <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-[11px] font-bold text-white">
-                            6
-                        </span>
+                        {/* Piezas realmente guardadas en el carrito de la
+                            cuenta. Se oculta en cero para no mostrar una
+                            insignia vacía. */}
+                        {piezas > 0 && (
+                            <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1 text-[11px] font-bold text-white">
+                                {piezas}
+                            </span>
+                        )}
                     </Link>
 
                     {/* Cuenta en sesión + salida */}
