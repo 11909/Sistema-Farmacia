@@ -3,23 +3,26 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
+import { mensajeParaCodigo } from "../../lib/codigosAcceso";
+import ModalAviso from "../shared/ModalAviso";
 
 /** Adónde se manda al administrador cuando no venía de una ruta protegida. */
 const DESTINO_POR_DEFECTO = "/grid_productos";
 
-export default function Login() {
+export default function FormularioLogin() {
     const [showPassword, setShowPassword] = useState(false);
-    const [error, setError] = useState<string | null>(null);
     const [enviando, setEnviando] = useState(false);
+    /** Código de error devuelto por NextAuth, o null si no hay modal abierto. */
+    const [codigoError, setCodigoError] = useState<string | null>(null);
 
     const router = useRouter();
     const searchParams = useSearchParams();
 
     /**
-     * `callbackUrl` lo pone `proxy.ts` al desviar a alguien sin sesión, para
-     * devolverlo a donde quería entrar. Solo se aceptan rutas relativas: una
-     * URL absoluta desde el query string permitiría un redirect abierto hacia
-     * un dominio de terceros.
+     * `callbackUrl` lo añade `proxy.ts` al desviar a alguien sin sesión, para
+     * devolverlo después a donde quería entrar. Solo se aceptan rutas
+     * relativas: admitir una URL absoluta desde el query string abriría un
+     * redirect hacia un dominio ajeno.
      */
     const callbackUrl = searchParams.get("callbackUrl");
     const destino =
@@ -29,13 +32,15 @@ export default function Login() {
 
     async function manejarEnvio(evento: React.FormEvent<HTMLFormElement>) {
         evento.preventDefault();
-        setError(null);
+        if (enviando) return;
+
+        setCodigoError(null);
         setEnviando(true);
 
         const datos = new FormData(evento.currentTarget);
 
         // `redirect: false` deja que NextAuth devuelva el resultado en lugar de
-        // navegar solo, para poder mostrar el error dentro del formulario.
+        // navegar por su cuenta, que es lo que permite abrir el modal.
         const resultado = await signIn("credentials", {
             redirect: false,
             email: String(datos.get("email") ?? ""),
@@ -43,20 +48,25 @@ export default function Login() {
         });
 
         if (!resultado?.ok) {
-            setError("Correo o contraseña incorrectos.");
+            // `error` trae el código lanzado por `authorize`.
+            setCodigoError(resultado?.error ?? "DESCONOCIDO");
             setEnviando(false);
             return;
         }
 
-        // `refresh()` revalida los Server Components para que el layout de
-        // /grid_productos ya vea la sesión recién creada.
+        // Al entrar sí se navega. `refresh()` revalida los Server Components
+        // para que el layout de /grid_productos vea la sesión recién creada.
         router.replace(destino);
         router.refresh();
     }
 
+    const mensaje = mensajeParaCodigo(codigoError);
+
     return (
         <>
-            <form className="space-y-5" onSubmit={manejarEnvio} noValidate>
+            {/* Sin `noValidate`: el navegador exige `required` y el formato de
+                correo antes de llegar al servidor. */}
+            <form className="space-y-5" onSubmit={manejarEnvio}>
                 {/* Email / Usuario */}
                 <div>
                     <label
@@ -158,17 +168,6 @@ export default function Login() {
                     </a>
                 </div>
 
-                {/* Error de autenticación. `role="alert"` para que los
-                    lectores de pantalla lo anuncien al aparecer. */}
-                {error && (
-                    <p
-                        role="alert"
-                        className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-                    >
-                        {error}
-                    </p>
-                )}
-
                 {/* Botón */}
                 <button
                     type="submit"
@@ -178,6 +177,13 @@ export default function Login() {
                     {enviando ? "Verificando..." : "Iniciar sesión"}
                 </button>
             </form>
+
+            <ModalAviso
+                abierto={codigoError !== null}
+                titulo={mensaje.titulo}
+                detalle={mensaje.detalle}
+                onCerrar={() => setCodigoError(null)}
+            />
         </>
     );
 }

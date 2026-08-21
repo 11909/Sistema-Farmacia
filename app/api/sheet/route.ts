@@ -1,29 +1,26 @@
 import { NextResponse } from 'next/server';
-import { google } from 'googleapis';
+import { leerFilas } from '@/app/lib/sheets';
+import { obtenerSesion } from '@/app/lib/sesion';
 
+/**
+ * Prueba de conexión con Google Sheets.
+ *
+ * Exige sesión: el endpoint devuelve datos de la hoja, así que no debe quedar
+ * abierto a cualquiera que alcance el servidor.
+ */
 export async function GET() {
+    const sesion = await obtenerSesion();
+    if (!sesion) {
+        return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
     try {
-        // 1. Autenticación con la cuenta de servicio
-        const auth = new google.auth.GoogleAuth({
-            credentials: {
-                client_email: process.env.GOOGLE_CLIENT_EMAIL,
-                // Reemplazamos los saltos de línea literales por reales
-                private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-            },
-            scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'], // Quita el .readonly si necesitas escribir
-        });
+        // Pestañas disponibles: Administrador, Sucursal, Carrito,
+        // Carrito_Producto, Producto, Producto_Lista_Proveedores,
+        // Lista_Proveedores.
+        const data = await leerFilas('Producto!A1:C10', 3);
 
-        const sheets = google.sheets({ version: 'v4', auth });
-
-        // 2. Hacer la petición a Google Sheets
-        const response = await sheets.spreadsheets.values.get({
-            spreadsheetId: process.env.GOOGLE_SHEET_ID,
-            range: 'Producto!A1:C10', // Pestañas disponibles: Administrador, Sucursal, Carrito, Carrito_Producto, Producto, Producto_Lista_Proveedores, Lista_Proveedores
-        });
-
-        // 3. Devolver los datos
-        return NextResponse.json({ data: response.data.values });
-
+        return NextResponse.json({ data });
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         console.error('[api/sheet] Error al conectar con Sheets:', message);

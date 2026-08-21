@@ -1,5 +1,7 @@
 import Link from "next/link";
 import IconoLogin from "../ui/shared/IconoLogin";
+import BotonCerrarSesion from "../ui/shared/BotonCerrarSesion";
+import { requerirSesion } from "../lib/sesion";
 
 /**
  * Layout del segmento /grid_productos.
@@ -10,11 +12,16 @@ import IconoLogin from "../ui/shared/IconoLogin";
  * dentro del segmento y `loading.tsx` ya los hereda, así que el esqueleto de
  * carga se ve con el mismo fondo y la misma barra, sin saltos de layout.
  */
-export default function GridProductosLayout({
+export default async function GridProductosLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
+    // Puerta de entrada al segmento: sin sesión válida se redirige al login.
+    // El layout corre antes que sus páginas hijas, así que esto cubre
+    // /grid_productos y /grid_productos/carrito con una sola comprobación.
+    const sesion = await requerirSesion("/grid_productos");
+
     return (
         <div className="relative min-h-screen font-sans">
             {/* Fondo: degradado suave azul -> blanco. Va en una capa fija al
@@ -122,6 +129,19 @@ export default function GridProductosLayout({
                             6
                         </span>
                     </Link>
+
+                    {/* Administrador en sesión + salida */}
+                    <div className="flex items-center gap-3">
+                        <span className="hidden text-right text-sm leading-tight md:block">
+                            <span className="block font-semibold text-gray-800">
+                                {sesion.user?.name}
+                            </span>
+                            <span className="block text-xs text-gray-500">
+                                {sesion.user?.email}
+                            </span>
+                        </span>
+                        <BotonCerrarSesion />
+                    </div>
                 </div>
             </header>
 
