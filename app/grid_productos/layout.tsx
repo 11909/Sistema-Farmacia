@@ -130,13 +130,17 @@ export default async function GridProductosLayout({
                         </span>
                     </Link>
 
-                    {/* Administrador en sesión + salida */}
+                    {/* Cuenta en sesión + salida */}
                     <div className="flex items-center gap-3">
                         <span className="hidden text-right text-sm leading-tight md:block">
                             <span className="block font-semibold text-gray-800">
                                 {sesion.user?.name}
                             </span>
                             <span className="block text-xs text-gray-500">
+                                {sesion.user?.rol === "sucursal"
+                                    ? "Sucursal"
+                                    : "Administrador"}
+                                {" · "}
                                 {sesion.user?.email}
                             </span>
                         </span>

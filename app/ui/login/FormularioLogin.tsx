@@ -82,7 +82,10 @@ export default function FormularioLogin() {
                         autoComplete="email"
                         required
                         placeholder="tu@correo.com"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder:text-gray-400"
+                        // `text-gray-800` explícito: sin él el input hereda el
+                        // color del <body>, que en modo oscuro es casi blanco y
+                        // desaparece sobre la tarjeta blanca del login.
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder:text-gray-400"
                     />
                 </div>
 
@@ -102,7 +105,9 @@ export default function FormularioLogin() {
                             autoComplete="current-password"
                             required
                             placeholder="••••••••"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder:text-gray-400 pr-12"
+                            // Mismo motivo que en el campo de correo: el color
+                            // heredado lo vuelve ilegible en modo oscuro.
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder:text-gray-400 pr-12"
                         />
                         <button
                             type="button"

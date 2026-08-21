@@ -1,14 +1,15 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { intentarAcceso } from "./administradores";
+import { intentarAcceso } from "./cuentas";
 import { CODIGO_ACCESO } from "./codigosAcceso";
 
 /**
  * Configuración de NextAuth.
  *
- * Un solo proveedor de credenciales, validado contra la pestaña
- * `Administrador` de Google Sheets. La estrategia de sesión es JWT porque no
- * hay base de datos donde persistir sesiones: el token va firmado en cookie.
+ * Un solo proveedor de credenciales, validado contra las pestañas
+ * `Administrador` y `Sucursal` de Google Sheets. La estrategia de sesión es JWT
+ * porque no hay base de datos donde persistir sesiones: el token va firmado en
+ * una cookie.
  */
 export const authOptions: NextAuthOptions = {
     providers: [
@@ -35,7 +36,7 @@ export const authOptions: NextAuthOptions = {
                     // Un fallo de red o de permisos contra Sheets no debe
                     // presentarse como "usuario inexistente".
                     console.error(
-                        "[auth] Fallo al consultar la pestaña Administrador:",
+                        "[auth] Fallo al consultar las pestañas de cuentas:",
                         error instanceof Error ? error.message : error,
                     );
                     throw new Error(CODIGO_ACCESO.errorHoja);
@@ -49,14 +50,15 @@ export const authOptions: NextAuthOptions = {
                     throw new Error(CODIGO_ACCESO.contrasenaIncorrecta);
                 }
 
-                const admin = resultado.administrador;
+                const { cuenta } = resultado;
 
                 // Lo que se devuelve aquí alimenta el callback `jwt`.
                 return {
-                    id: admin.email,
-                    email: admin.email,
-                    name: admin.nombreCompleto,
-                    rol: "administrador",
+                    id: cuenta.email,
+                    email: cuenta.email,
+                    name: cuenta.nombreCompleto,
+                    rol: cuenta.rol,
+                    zona: cuenta.zona,
                 };
             },
         }),
@@ -74,13 +76,19 @@ export const authOptions: NextAuthOptions = {
 
     callbacks: {
         // `user` solo llega en el inicio de sesión; en las renovaciones
-        // siguientes el rol ya viene dentro del token.
+        // siguientes el rol y la zona ya viajan dentro del token.
         async jwt({ token, user }) {
-            if (user) token.rol = user.rol;
+            if (user) {
+                token.rol = user.rol;
+                token.zona = user.zona;
+            }
             return token;
         },
         async session({ session, token }) {
-            if (session.user) session.user.rol = token.rol;
+            if (session.user) {
+                session.user.rol = token.rol;
+                session.user.zona = token.zona;
+            }
             return session;
         },
     },
