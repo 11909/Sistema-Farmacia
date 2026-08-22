@@ -10,7 +10,7 @@ import { guardarCarritoDeSesion } from "../../lib/acciones/carrito";
 import {
     acotarCantidad,
     CANTIDAD_MAXIMA,
-    type LineaCarrito,
+    type LineaVisible,
 } from "../../lib/tiposCarrito";
 
 /**
@@ -202,16 +202,21 @@ function SelectorCantidad({
 }
 
 type FilaProductoProps = {
-    linea: LineaCarrito;
+    linea: LineaVisible;
     onCantidad: (id: string, cantidad: number) => void;
     onEliminar: (id: string) => void;
 };
 
 /** Una partida del pedido dentro del grupo de su proveedor. */
 function FilaProducto({ linea, onCantidad, onEliminar }: FilaProductoProps) {
-    const subtotal = linea.precioUnitario * linea.cantidad;
+    // Sin precio no hay importes que calcular: la partida es de una sucursal y
+    // los campos vienen recortados desde el servidor.
+    const subtotal =
+        linea.precioUnitario !== undefined
+            ? linea.precioUnitario * linea.cantidad
+            : null;
     const ahorroLinea =
-        linea.precioMasAlto !== undefined
+        linea.precioUnitario !== undefined && linea.precioMasAlto !== undefined
             ? (linea.precioMasAlto - linea.precioUnitario) * linea.cantidad
             : 0;
     const casiAgotado = linea.existencias - linea.cantidad <= 3;
@@ -245,15 +250,17 @@ function FilaProducto({ linea, onCantidad, onEliminar }: FilaProductoProps) {
                 )}
             </div>
 
-            {/* Precio unitario */}
-            <div className="shrink-0 sm:w-28 sm:text-right">
-                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-gray-400">
-                    Unitario
-                </p>
-                <p className="font-mono text-sm font-semibold tabular-nums text-gray-700">
-                    {formatoPrecio(linea.precioUnitario)}
-                </p>
-            </div>
+            {/* Precio unitario. Solo para administradores. */}
+            {linea.precioUnitario !== undefined && (
+                <div className="shrink-0 sm:w-28 sm:text-right">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-gray-400">
+                        Unitario
+                    </p>
+                    <p className="font-mono text-sm font-semibold tabular-nums text-gray-700">
+                        {formatoPrecio(linea.precioUnitario)}
+                    </p>
+                </div>
+            )}
 
             {/* Cantidad */}
             <div className="shrink-0">
@@ -266,17 +273,24 @@ function FilaProducto({ linea, onCantidad, onEliminar }: FilaProductoProps) {
             </div>
 
             {/* Subtotal y eliminar */}
-            <div className="flex shrink-0 items-center justify-between gap-3 sm:w-36 sm:justify-end">
-                <div className="sm:text-right">
-                    <p className="font-mono text-lg font-bold tabular-nums text-gray-900">
-                        {formatoPrecio(subtotal)}
-                    </p>
-                    {ahorroLinea > 0 && (
-                        <p className="font-mono text-[13px] font-semibold tabular-nums text-emerald-600">
-                            −{formatoPrecio(ahorroLinea)}
+            <div
+                className={`flex shrink-0 items-center gap-3 ${subtotal !== null
+                    ? "justify-between sm:w-36 sm:justify-end"
+                    : "justify-end"
+                    }`}
+            >
+                {subtotal !== null && (
+                    <div className="sm:text-right">
+                        <p className="font-mono text-lg font-bold tabular-nums text-gray-900">
+                            {formatoPrecio(subtotal)}
                         </p>
-                    )}
-                </div>
+                        {ahorroLinea > 0 && (
+                            <p className="font-mono text-[13px] font-semibold tabular-nums text-emerald-600">
+                                −{formatoPrecio(ahorroLinea)}
+                            </p>
+                        )}
+                    </div>
+                )}
 
                 <button
                     type="button"
@@ -347,15 +361,25 @@ function CarritoVacio() {
 export default function CarritoCliente({
     lineasIniciales,
     paletas,
+    mostrarPrecios,
 }: {
-    lineasIniciales: LineaCarrito[];
+    lineasIniciales: LineaVisible[];
     /**
      * Colores de burbujas de `Lista_Proveedores`. Llegan como prop desde la
      * página: leerlos aquí obligaría a traer el cliente de Sheets al navegador.
      */
     paletas: PaletasProveedor;
+    /**
+     * Si se muestran importes. Va explícito además de venir implícito en que
+     * las partidas traigan o no precio: deja la intención escrita y evita que
+     * un carrito vacío, donde no hay partida que mirar, decida por su cuenta.
+     *
+     * No es la barrera: quien impide que una sucursal vea los precios es el
+     * recorte del servidor. Esto solo ordena la interfaz.
+     */
+    mostrarPrecios: boolean;
 }) {
-    const [lineas, setLineas] = useState<LineaCarrito[]>(lineasIniciales);
+    const [lineas, setLineas] = useState<LineaVisible[]>(lineasIniciales);
     const [estadoGuardado, setEstadoGuardado] = useState<
         "sincronizado" | "guardando" | "error"
     >("sincronizado");
@@ -418,7 +442,7 @@ export default function CarritoCliente({
      * así se ve de un golpe cuánto se le compra a cada casa.
      */
     const grupos = useMemo(() => {
-        const porProveedor = new Map<string, LineaCarrito[]>();
+        const porProveedor = new Map<string, LineaVisible[]>();
 
         for (const linea of lineas) {
             const existente = porProveedor.get(linea.proveedor);
@@ -430,26 +454,43 @@ export default function CarritoCliente({
             .map(([proveedor, items]) => ({
                 proveedor,
                 items,
-                subtotal: items.reduce(
-                    (suma, l) => suma + l.precioUnitario * l.cantidad,
-                    0,
-                ),
+                // `null` cuando las partidas vienen sin importes.
+                subtotal: items.every((l) => l.precioUnitario !== undefined)
+                    ? items.reduce(
+                        (suma, l) => suma + (l.precioUnitario ?? 0) * l.cantidad,
+                        0,
+                    )
+                    : null,
                 piezas: items.reduce((suma, l) => suma + l.cantidad, 0),
             }))
-            // De mayor a menor importe: primero el proveedor con más peso en el pedido.
-            .sort((a, b) => b.subtotal - a.subtotal);
+            // Con importes manda el peso en dinero: primero el proveedor al que
+            // más se le compra. Sin ellos se ordena por piezas, que es lo único
+            // comparable que queda.
+            .sort((a, b) =>
+                a.subtotal !== null && b.subtotal !== null
+                    ? b.subtotal - a.subtotal
+                    : b.piezas - a.piezas,
+            );
     }, [lineas]);
 
     const totales = useMemo(() => {
+        const piezas = lineas.reduce((suma, l) => suma + l.cantidad, 0);
+
+        // Una sola partida sin precio invalida cualquier total: mejor no dar
+        // ninguno que dar uno incompleto que se lea como el importe del pedido.
+        if (!lineas.every((l) => l.precioUnitario !== undefined)) {
+            return { subtotal: null, piezas, ahorro: 0, porcentaje: 0 };
+        }
+
         const subtotal = lineas.reduce(
-            (suma, l) => suma + l.precioUnitario * l.cantidad,
+            (suma, l) => suma + (l.precioUnitario ?? 0) * l.cantidad,
             0,
         );
-        const piezas = lineas.reduce((suma, l) => suma + l.cantidad, 0);
         const ahorro = lineas.reduce(
             (suma, l) =>
                 l.precioMasAlto !== undefined
-                    ? suma + (l.precioMasAlto - l.precioUnitario) * l.cantidad
+                    ? suma +
+                    (l.precioMasAlto - (l.precioUnitario ?? 0)) * l.cantidad
                     : suma,
             0,
         );
@@ -520,12 +561,14 @@ export default function CarritoCliente({
                                     aria-hidden="true"
                                     className="min-w-4 flex-1 border-t border-dashed border-current opacity-30"
                                 />
-                                <ChipCristal
-                                    cristal={colores.cristal}
-                                    className="px-3 py-1 font-mono text-sm font-bold tabular-nums"
-                                >
-                                    {formatoPrecio(grupo.subtotal)}
-                                </ChipCristal>
+                                {grupo.subtotal !== null && (
+                                    <ChipCristal
+                                        cristal={colores.cristal}
+                                        className="px-3 py-1 font-mono text-sm font-bold tabular-nums"
+                                    >
+                                        {formatoPrecio(grupo.subtotal)}
+                                    </ChipCristal>
+                                )}
                             </header>
 
                             <ul className="divide-y divide-gray-100">
@@ -596,7 +639,7 @@ export default function CarritoCliente({
 
                         <div className="flex items-start justify-between gap-2">
                             <p className="text-[11px] font-bold uppercase tracking-[0.12em] opacity-75">
-                                Total del pedido
+                                {mostrarPrecios ? "Total del pedido" : "Piezas del pedido"}
                             </p>
                             <p className="text-base font-bold leading-none">
                                 {grupos.length}{" "}
@@ -604,16 +647,30 @@ export default function CarritoCliente({
                             </p>
                         </div>
                         <div className="mt-2 flex items-end justify-between gap-2">
-                            <p className="font-mono text-3xl font-bold leading-none tabular-nums">
-                                {formatoPrecio(totales.subtotal)}
-                            </p>
-                            <p className="text-right text-xs leading-tight opacity-75">
-                                piezas
-                                <br />
-                                <span className="font-mono tabular-nums">
-                                    {totales.piezas}
-                                </span>
-                            </p>
+                            {/* Sin importes el dato grande pasan a ser las
+                                piezas: es lo que la sucursal sí puede ver y
+                                deja el banner con algo que leer. */}
+                            {totales.subtotal !== null ? (
+                                <>
+                                    <p className="font-mono text-3xl font-bold leading-none tabular-nums">
+                                        {formatoPrecio(totales.subtotal)}
+                                    </p>
+                                    <p className="text-right text-xs leading-tight opacity-75">
+                                        piezas
+                                        <br />
+                                        <span className="font-mono tabular-nums">
+                                            {totales.piezas}
+                                        </span>
+                                    </p>
+                                </>
+                            ) : (
+                                <p className="font-mono text-3xl font-bold leading-none tabular-nums">
+                                    {totales.piezas}{" "}
+                                    <span className="text-base font-semibold">
+                                        {totales.piezas === 1 ? "pieza" : "piezas"}
+                                    </span>
+                                </p>
+                            )}
                         </div>
                     </div>
 
@@ -637,8 +694,12 @@ export default function CarritoCliente({
                                         aria-hidden="true"
                                         className="min-w-4 flex-1 border-t border-dashed border-gray-300"
                                     />
+                                    {/* Sin importes se listan las piezas que se
+                                        le compran a cada proveedor. */}
                                     <span className="shrink-0 font-mono text-sm font-semibold tabular-nums text-gray-700">
-                                        {formatoPrecio(grupo.subtotal)}
+                                        {grupo.subtotal !== null
+                                            ? formatoPrecio(grupo.subtotal)
+                                            : `${grupo.piezas} ${grupo.piezas === 1 ? "pza" : "pzas"}`}
                                     </span>
                                 </li>
                             );
@@ -657,25 +718,55 @@ export default function CarritoCliente({
                         </div>
                     )}
 
+                    {/* Desglose de importes: solo para administradores. A una
+                        sucursal se le muestran las piezas y los proveedores, que
+                        es lo que necesita para revisar el pedido. */}
                     <dl className="mt-4 flex flex-col gap-2 border-t border-gray-100 pt-4 text-sm">
-                        <div className="flex items-center justify-between">
-                            <dt className="text-gray-500">Subtotal</dt>
-                            <dd className="font-mono font-semibold tabular-nums text-gray-700">
-                                {formatoPrecio(totales.subtotal)}
-                            </dd>
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <dt className="text-gray-500">Envío</dt>
-                            <dd className="text-[13px] font-semibold text-emerald-600">
-                                Incluido
-                            </dd>
-                        </div>
-                        <div className="mt-1 flex items-center justify-between border-t border-gray-100 pt-3">
-                            <dt className="font-bold text-gray-900">Total a pagar</dt>
-                            <dd className="font-mono text-lg font-bold tabular-nums text-gray-900">
-                                {formatoPrecio(totales.subtotal)}
-                            </dd>
-                        </div>
+                        {totales.subtotal !== null ? (
+                            <>
+                                <div className="flex items-center justify-between">
+                                    <dt className="text-gray-500">Subtotal</dt>
+                                    <dd className="font-mono font-semibold tabular-nums text-gray-700">
+                                        {formatoPrecio(totales.subtotal)}
+                                    </dd>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <dt className="text-gray-500">Envío</dt>
+                                    <dd className="text-[13px] font-semibold text-emerald-600">
+                                        Incluido
+                                    </dd>
+                                </div>
+                                <div className="mt-1 flex items-center justify-between border-t border-gray-100 pt-3">
+                                    <dt className="font-bold text-gray-900">
+                                        Total a pagar
+                                    </dt>
+                                    <dd className="font-mono text-lg font-bold tabular-nums text-gray-900">
+                                        {formatoPrecio(totales.subtotal)}
+                                    </dd>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <div className="flex items-center justify-between">
+                                    <dt className="text-gray-500">Productos</dt>
+                                    <dd className="font-mono font-semibold tabular-nums text-gray-700">
+                                        {lineas.length}
+                                    </dd>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <dt className="text-gray-500">Piezas</dt>
+                                    <dd className="font-mono font-semibold tabular-nums text-gray-700">
+                                        {totales.piezas}
+                                    </dd>
+                                </div>
+                                <div className="mt-1 flex items-center justify-between border-t border-gray-100 pt-3">
+                                    <dt className="font-bold text-gray-900">Proveedores</dt>
+                                    <dd className="font-mono text-lg font-bold tabular-nums text-gray-900">
+                                        {grupos.length}
+                                    </dd>
+                                </div>
+                            </>
+                        )}
                     </dl>
 
                     <button

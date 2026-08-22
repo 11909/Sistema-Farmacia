@@ -53,6 +53,33 @@ export type PartidaGuardada = {
     cantidad: number;
 };
 
+/**
+ * Una partida tal como se le entrega a la interfaz.
+ *
+ * Los importes son opcionales porque a las cuentas de sucursal se les quitan
+ * antes de salir del servidor (ver `sinPrecios`). No basta con no pintarlos: una
+ * `LineaCarrito` completa viaja dentro del payload que el navegador recibe para
+ * hidratar el carrito, así que si el precio va ahí, está a la vista de quien
+ * abra las herramientas de desarrollo.
+ */
+export type LineaVisible = Omit<
+    LineaCarrito,
+    "precioUnitario" | "precioMasAlto"
+> & {
+    precioUnitario?: number;
+    precioMasAlto?: number;
+};
+
+/** Quita los importes de las partidas antes de mandarlas al navegador. */
+export function sinPrecios(lineas: LineaCarrito[]): LineaVisible[] {
+    return lineas.map((linea) => {
+        const visible: LineaVisible = { ...linea };
+        delete visible.precioUnitario;
+        delete visible.precioMasAlto;
+        return visible;
+    });
+}
+
 export const CANTIDAD_MAXIMA = 99;
 
 /** Recorta una cantidad al rango permitido por el stock del proveedor. */
