@@ -8,18 +8,13 @@ import {
 } from "./sheets";
 import {
     buscarPorCodigoBarras,
+    obtenerCatalogo,
     ofertaDe,
     precioMasAltoDisponible,
     EXISTENCIAS_POR_DEFECTO,
+    type Catalogo,
 } from "./catalogo";
-import {
-    construirDirectorio,
-    idDeProveedor,
-    nombreDeProveedor,
-    COLUMNAS_PROVEEDORES,
-    RANGO_PROVEEDORES,
-    type DirectorioProveedores,
-} from "./proveedores";
+import { idDeProveedor, nombreDeProveedor } from "./proveedores";
 import { normalizarEmail, type Rol } from "./credenciales";
 import {
     acotarCantidad,
@@ -101,22 +96,32 @@ function marcaDeTiempo(): { fecha: string; hora: string } {
 type EstadoHoja = {
     filasCarrito: string[][];
     filasPartidas: string[][];
-    directorio: DirectorioProveedores;
+    /**
+     * Catálogo con el que se validan las partidas. Trae dentro el directorio de
+     * proveedores, así que `Lista_Proveedores` no se lee aparte.
+     */
+    catalogo: Catalogo;
 };
 
-/** Una sola petición para las tres pestañas implicadas. */
+/**
+ * Estado de la hoja para operar sobre un carrito.
+ *
+ * Las dos pestañas del carrito van en un `batchGet` (una lectura) y el catálogo
+ * viene de su propia caché, así que lo normal es que esto cueste una sola
+ * lectura de la cuota.
+ */
 async function leerEstadoHoja(): Promise<EstadoHoja> {
-    const [filasCarrito, filasPartidas, filasProveedores] =
-        await leerVariosRangos(
-            [CARRITO.rango, PARTIDAS.rango, RANGO_PROVEEDORES],
-            [CARRITO.columnas, PARTIDAS.columnas, COLUMNAS_PROVEEDORES],
-        );
+    const [rangosCarrito, catalogo] = await Promise.all([
+        leerVariosRangos(
+            [CARRITO.rango, PARTIDAS.rango],
+            [CARRITO.columnas, PARTIDAS.columnas],
+        ),
+        obtenerCatalogo(),
+    ]);
 
-    return {
-        filasCarrito,
-        filasPartidas,
-        directorio: construirDirectorio(filasProveedores),
-    };
+    const [filasCarrito, filasPartidas] = rangosCarrito;
+
+    return { filasCarrito, filasPartidas, catalogo };
 }
 
 /**
@@ -168,11 +173,12 @@ function siguienteFolio(filasCarrito: string[][]): string {
  * catálogo: una partida huérfana se descarta en lugar de romper la página.
  */
 function reconstruirLinea(
+    catalogo: Catalogo,
     codigoBarras: string,
     proveedor: string,
     cantidad: number,
 ): LineaCarrito | null {
-    const medicamento = buscarPorCodigoBarras(codigoBarras);
+    const medicamento = buscarPorCodigoBarras(catalogo, codigoBarras);
     if (!medicamento) return null;
 
     const oferta = ofertaDe(medicamento, proveedor);
@@ -180,10 +186,12 @@ function reconstruirLinea(
 
     const existencias = oferta.existencias ?? EXISTENCIAS_POR_DEFECTO;
 
-    return {
-        id: medicamento.id,
+    const linea: LineaCarrito = {
+        // Producto y proveedor: la misma clave con la que la hoja identifica la
+        // partida. El código de barras solo no basta, porque el mismo producto
+        // puede estar en el carrito comprado a dos proveedores distintos.
+        id: `${medicamento.codigoBarras}|${oferta.proveedor}`,
         nombre: medicamento.nombre,
-        presentacion: medicamento.presentacion,
         codigoBarras: medicamento.codigoBarras,
         proveedor: oferta.proveedor,
         precioUnitario: oferta.precio,
@@ -191,6 +199,9 @@ function reconstruirLinea(
         cantidad: acotarCantidad(cantidad, existencias),
         existencias,
     };
+    if (oferta.unidad !== undefined) linea.unidad = oferta.unidad;
+
+    return linea;
 }
 
 /** Convierte las partidas de un folio en líneas completas para la interfaz. */
@@ -201,7 +212,7 @@ function lineasDelFolio(estado: EstadoHoja, folio: string): LineaCarrito[] {
         if (fila[PARTIDAS.col.folio].trim() !== folio) continue;
 
         const proveedor = nombreDeProveedor(
-            estado.directorio,
+            estado.catalogo.directorio,
             fila[PARTIDAS.col.idProveedor],
         );
         if (!proveedor) continue;
@@ -210,6 +221,7 @@ function lineasDelFolio(estado: EstadoHoja, folio: string): LineaCarrito[] {
         if (!Number.isFinite(cantidad) || cantidad < 1) continue;
 
         const linea = reconstruirLinea(
+            estado.catalogo,
             fila[PARTIDAS.col.codigoBarras],
             proveedor,
             cantidad,
@@ -327,13 +339,17 @@ async function aplicarGuardado(
 
     for (const partida of partidas) {
         const linea = reconstruirLinea(
+            estado.catalogo,
             partida.codigoBarras,
             partida.proveedor,
             partida.cantidad,
         );
         if (!linea) continue;
 
-        const idProveedor = idDeProveedor(estado.directorio, linea.proveedor);
+        const idProveedor = idDeProveedor(
+            estado.catalogo.directorio,
+            linea.proveedor,
+        );
         if (!idProveedor) continue;
 
         lineas.push(linea);

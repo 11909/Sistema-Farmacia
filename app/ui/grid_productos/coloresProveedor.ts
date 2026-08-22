@@ -134,7 +134,7 @@ export const COLOR_NEUTRO: ColoresProveedor = {
  * Paleta del proveedor, con respaldo neutro si el nombre no está registrado.
  *
  * Si se le pasan las paletas de `Lista_Proveedores` (las trae
- * `obtenerPaletasDeRender` en el servidor), las burbujas salen de la hoja y el
+ * `obtenerCatalogo` en el servidor), las burbujas salen de la hoja y el
  * resto de la identidad sigue viniendo del código. Cuando el proveedor no está
  * en la hoja, o tiene las celdas de color vacías o mal formadas, se queda con
  * `burbujas` de `COLOR_PROVEEDOR`: así un error de dedo en una celda no deja el

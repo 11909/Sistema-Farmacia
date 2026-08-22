@@ -8,10 +8,16 @@
 
 /** Una partida del pedido: un medicamento comprado a un proveedor concreto. */
 export type LineaCarrito = {
-    /** Id del medicamento en el catálogo, usado para enlazar a su ficha. */
-    id: number;
+    /**
+     * Identidad de la partida: `codigo_barras|proveedor`.
+     *
+     * Lleva el proveedor dentro porque el mismo producto puede estar dos veces
+     * en el carrito comprado a proveedores distintos, y son partidas separadas.
+     * Con solo el código de barras, cambiar la cantidad de una afectaría a las
+     * dos.
+     */
+    id: string;
     nombre: string;
-    presentacion: string;
     /** Clave con la que la hoja identifica el producto. */
     codigoBarras: string;
     /** Proveedor elegido en el comparador. */
@@ -27,14 +33,19 @@ export type LineaCarrito = {
     cantidad: number;
     /** Piezas que el proveedor tiene en existencia (tope del selector). */
     existencias: number;
+    /**
+     * Unidad de venta del proveedor (PZ, PAQ, CAJA...), cuando la hoja la trae
+     * en lugar de una cantidad. Ocupa el hueco donde antes iba la presentación.
+     */
+    unidad?: string;
 };
 
 /**
  * Lo único que se persiste de cada partida.
  *
  * Coincide con las columnas de `Carrito_Producto`. El resto de campos de
- * `LineaCarrito` (nombre, presentación, precios) se resuelven desde el catálogo
- * al leer, así que no se duplican en la hoja.
+ * `LineaCarrito` (nombre, precios, existencia) se resuelven desde el catálogo al
+ * leer, así que no se duplican en la hoja.
  */
 export type PartidaGuardada = {
     codigoBarras: string;

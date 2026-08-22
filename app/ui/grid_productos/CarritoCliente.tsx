@@ -203,8 +203,8 @@ function SelectorCantidad({
 
 type FilaProductoProps = {
     linea: LineaCarrito;
-    onCantidad: (id: number, cantidad: number) => void;
-    onEliminar: (id: number) => void;
+    onCantidad: (id: string, cantidad: number) => void;
+    onEliminar: (id: string) => void;
 };
 
 /** Una partida del pedido dentro del grupo de su proveedor. */
@@ -220,15 +220,16 @@ function FilaProducto({ linea, onCantidad, onEliminar }: FilaProductoProps) {
         <li className="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:gap-5 sm:px-7">
             {/* Identificación del medicamento */}
             <div className="min-w-0 flex-1">
+                {/* Texto plano y no enlace: no hay ficha de producto a la que
+                    llevar, `/grid_productos/[codigo]` no existe como ruta. */}
                 <h3 className="text-base font-bold leading-snug text-gray-900">
-                    <Link
-                        href={`/grid_productos/${linea.id}`}
-                        className="transition hover:text-blue-700 focus:outline-none focus-visible:underline"
-                    >
-                        {linea.nombre}
-                    </Link>
+                    {linea.nombre}
                 </h3>
-                <p className="mt-0.5 text-[13px] text-gray-500">{linea.presentacion}</p>
+                {linea.unidad && (
+                    <p className="mt-0.5 text-[13px] text-gray-500">
+                        Se surte por {linea.unidad}
+                    </p>
+                )}
 
                 <div className="mt-1.5 flex items-center gap-1.5">
                     <span className="font-mono text-[13px] tracking-tight text-gray-400">
@@ -398,7 +399,7 @@ export default function CarritoCliente({
         };
     }, [lineas]);
 
-    function cambiarCantidad(id: number, cantidad: number) {
+    function cambiarCantidad(id: string, cantidad: number) {
         setLineas((actuales) =>
             actuales.map((l) =>
                 l.id === id
@@ -408,7 +409,7 @@ export default function CarritoCliente({
         );
     }
 
-    function eliminar(id: number) {
+    function eliminar(id: string) {
         setLineas((actuales) => actuales.filter((l) => l.id !== id));
     }
 

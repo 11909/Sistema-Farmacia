@@ -1,5 +1,3 @@
-import { cache } from "react";
-import { leerFilas } from "./sheets";
 import { claveProveedor, nombreEnCodigo } from "./nombresProveedor";
 // Solo el tipo: `import type` se borra al compilar, así que este módulo no
 // arrastra el componente (ni su SCSS) al servidor.
@@ -144,28 +142,6 @@ export function construirDirectorio(
 
     return { nombrePorId, idPorNombre, paletas };
 }
-
-export async function obtenerDirectorioProveedores(): Promise<DirectorioProveedores> {
-    return construirDirectorio(
-        await leerFilas(RANGO_PROVEEDORES, COLUMNAS_PROVEEDORES),
-    );
-}
-
-/**
- * Paletas de burbujas de la hoja, listas para pasar a la interfaz.
- *
- * Va envuelto en `cache` de React para que las varias partes de un mismo render
- * que las necesitan (la página del catálogo, la del carrito) compartan una sola
- * lectura de Sheets. Fuera de ese render se vuelve a leer, que es lo que
- * permite cambiar un color en la hoja y verlo al recargar sin reiniciar el
- * servidor.
- */
-export const obtenerPaletasDeRender = cache(
-    async (): Promise<PaletasProveedor> => {
-        const directorio = await obtenerDirectorioProveedores();
-        return directorio.paletas;
-    },
-);
 
 /**
  * Traduce el nombre de proveedor que usa la interfaz al `id_proveedor` de la
