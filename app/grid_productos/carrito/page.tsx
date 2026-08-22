@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requerirSesion } from "../../lib/sesion";
 import { leerCarritoDeRender } from "../../lib/carrito";
+import { obtenerPaletasDeRender } from "../../lib/proveedores";
 import CarritoCliente from "../../ui/grid_productos/CarritoCliente";
 
 export const metadata: Metadata = {
@@ -17,7 +18,12 @@ export default async function Carrito() {
     const sesion = await requerirSesion("/grid_productos/carrito");
     // `leerCarritoDeRender` está memoizado por petición, así que esta lectura y
     // la del conteo en el layout comparten una sola llamada a Sheets.
-    const lineas = await leerCarritoDeRender(sesion.user!.email!);
+    // Las dos lecturas van en paralelo: no dependen entre sí y así la página no
+    // paga dos viajes seguidos a Sheets.
+    const [lineas, paletas] = await Promise.all([
+        leerCarritoDeRender(sesion.user!.email!),
+        obtenerPaletasDeRender(),
+    ]);
 
     // El fondo degradado y la barra superior los aporta `layout.tsx` del
     // segmento, así que aquí solo va el contenido de la página.
@@ -48,7 +54,7 @@ export default async function Carrito() {
                 {/* Toda la interacción (cantidades, eliminar, totales) vive en el
                     componente de cliente; la página se mantiene en el servidor y
                     solo le entrega el carrito guardado de la cuenta. */}
-                <CarritoCliente lineasIniciales={lineas} />
+                <CarritoCliente lineasIniciales={lineas} paletas={paletas} />
             </div>
         </main>
     );

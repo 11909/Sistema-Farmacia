@@ -6,11 +6,14 @@ import BotonCopiarCodigo from "../ui/grid_productos/BotonCopiarCodigo";
 import BotonAgregarCarrito from "../ui/grid_productos/BotonAgregarCarrito";
 import BurbujasPrecio from "../ui/grid_productos/BurbujasPrecio";
 import {
-    COLOR_NEUTRO,
-    COLOR_PROVEEDOR,
+    coloresDe,
     formatoPrecio,
     precioCompacto,
 } from "../ui/grid_productos/coloresProveedor";
+import {
+    obtenerPaletasDeRender,
+    type PaletasProveedor,
+} from "../lib/proveedores";
 // El catálogo vive en `app/lib/catalogo.ts` porque el carrito también lo
 // necesita para reconstruir sus partidas desde los códigos de barras guardados.
 import {
@@ -54,7 +57,9 @@ function RankingProveedores({
     return (
         <ul className="mt-4 flex flex-col gap-1">
             {ordenados.map((p, idx) => {
-                const colores = COLOR_PROVEEDOR[p.proveedor] ?? COLOR_NEUTRO;
+                // Sin paletas de la hoja: el ranking solo usa clases de
+                // Tailwind (`fila`, `insignia`, `guion`), no las burbujas.
+                const colores = coloresDe(p.proveedor);
                 const esGanador = p === ganador;
 
                 return (
@@ -118,7 +123,14 @@ function RankingProveedores({
     );
 }
 
-function TarjetaProducto({ medicamento }: { medicamento: Medicamento }) {
+function TarjetaProducto({
+    medicamento,
+    paletas,
+}: {
+    medicamento: Medicamento;
+    /** Colores de burbujas de `Lista_Proveedores`, para teñir el banner. */
+    paletas: PaletasProveedor;
+}) {
     // Orden ascendente por precio; los agotados van al final.
     const ordenados = [...medicamento.precios].sort((a, b) => {
         if (a.disponible !== b.disponible) return a.disponible ? -1 : 1;
@@ -139,9 +151,7 @@ function TarjetaProducto({ medicamento }: { medicamento: Medicamento }) {
             ? Math.floor(((mayorPrecio - menorPrecio) / mayorPrecio) * 100)
             : 0;
 
-    const colores = ganador
-        ? COLOR_PROVEEDOR[ganador.proveedor] ?? COLOR_NEUTRO
-        : COLOR_NEUTRO;
+    const colores = coloresDe(ganador?.proveedor, paletas);
 
     return (
         <article className="flex flex-col rounded-3xl bg-white p-7 shadow-sm ring-1 ring-gray-200/80 transition duration-200 hover:-translate-y-1 hover:shadow-xl hover:shadow-gray-900/5 hover:ring-gray-300">
@@ -228,7 +238,11 @@ function TarjetaProducto({ medicamento }: { medicamento: Medicamento }) {
     );
 }
 
-export default function GridProductos() {
+export default async function GridProductos() {
+    // Identidad visual de los proveedores, desde `Lista_Proveedores`. El
+    // catálogo en sí sigue siendo el de ejemplo de `app/lib/catalogo.ts`.
+    const paletas = await obtenerPaletasDeRender();
+
     return (
         // El fondo degradado y la barra superior viven en `layout.tsx`,
         // compartidos con las rutas hijas del segmento y con `loading.tsx`.
@@ -250,7 +264,7 @@ export default function GridProductos() {
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
                     {MEDICAMENTOS.map((med) => (
                         <Suspense key={med.id} fallback={<CardSkeleton />}>
-                            <TarjetaProducto medicamento={med} />
+                            <TarjetaProducto medicamento={med} paletas={paletas} />
                         </Suspense>
                     ))}
                 </div>

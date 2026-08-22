@@ -1,4 +1,6 @@
 import type { PaletaBurbujas } from "./BurbujasPrecio";
+import { claveProveedor } from "../../lib/nombresProveedor";
+import type { PaletasProveedor } from "../../lib/proveedores";
 
 /**
  * Identidad visual de cada proveedor.
@@ -18,7 +20,14 @@ import type { PaletaBurbujas } from "./BurbujasPrecio";
 export type ColoresProveedor = {
     /** Color de texto del banner de mejor precio (el fondo lo pintan las burbujas). */
     banner: string;
-    /** Paleta de las burbujas animadas del banner. */
+    /**
+     * Paleta de las burbujas animadas del banner.
+     *
+     * Es el único campo que la hoja puede sustituir: las columnas
+     * `bubble_color` y `bubble_background` de `Lista_Proveedores` mandan sobre
+     * lo que hay aquí (ver `coloresDe`). El resto son clases de Tailwind, que
+     * tienen que existir en el código para que el compilador las genere.
+     */
     burbujas: PaletaBurbujas;
     /** Insignia circular del primer lugar / etiqueta del proveedor. */
     insignia: string;
@@ -121,10 +130,27 @@ export const COLOR_NEUTRO: ColoresProveedor = {
     cristal: "bg-white/45 ring-white/60",
 };
 
-/** Paleta del proveedor, con respaldo neutro si el nombre no está registrado. */
-export function coloresDe(proveedor: string | null | undefined) {
+/**
+ * Paleta del proveedor, con respaldo neutro si el nombre no está registrado.
+ *
+ * Si se le pasan las paletas de `Lista_Proveedores` (las trae
+ * `obtenerPaletasDeRender` en el servidor), las burbujas salen de la hoja y el
+ * resto de la identidad sigue viniendo del código. Cuando el proveedor no está
+ * en la hoja, o tiene las celdas de color vacías o mal formadas, se queda con
+ * `burbujas` de `COLOR_PROVEEDOR`: así un error de dedo en una celda no deja el
+ * banner sin fondo.
+ */
+export function coloresDe(
+    proveedor: string | null | undefined,
+    paletas?: PaletasProveedor,
+): ColoresProveedor {
     if (!proveedor) return COLOR_NEUTRO;
-    return COLOR_PROVEEDOR[proveedor] ?? COLOR_NEUTRO;
+
+    const base = COLOR_PROVEEDOR[proveedor] ?? COLOR_NEUTRO;
+    if (!paletas) return base;
+
+    const deLaHoja = paletas[claveProveedor(proveedor)];
+    return deLaHoja ? { ...base, burbujas: deLaHoja } : base;
 }
 
 /** Precio con dos decimales: $1234.50 */

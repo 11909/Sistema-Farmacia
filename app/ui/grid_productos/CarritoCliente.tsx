@@ -5,6 +5,7 @@ import Link from "next/link";
 import BotonCopiarCodigo from "./BotonCopiarCodigo";
 import BurbujasPrecio from "./BurbujasPrecio";
 import { coloresDe, formatoPrecio } from "./coloresProveedor";
+import type { PaletasProveedor } from "../../lib/proveedores";
 import { guardarCarritoDeSesion } from "../../lib/acciones/carrito";
 import {
     acotarCantidad,
@@ -344,8 +345,14 @@ function CarritoVacio() {
 
 export default function CarritoCliente({
     lineasIniciales,
+    paletas,
 }: {
     lineasIniciales: LineaCarrito[];
+    /**
+     * Colores de burbujas de `Lista_Proveedores`. Llegan como prop desde la
+     * página: leerlos aquí obligaría a traer el cliente de Sheets al navegador.
+     */
+    paletas: PaletasProveedor;
 }) {
     const [lineas, setLineas] = useState<LineaCarrito[]>(lineasIniciales);
     const [estadoGuardado, setEstadoGuardado] = useState<
@@ -460,7 +467,7 @@ export default function CarritoCliente({
             {/* Partidas del pedido, agrupadas por proveedor */}
             <div className="flex flex-col gap-6 lg:col-span-2">
                 {grupos.map((grupo) => {
-                    const colores = coloresDe(grupo.proveedor);
+                    const colores = coloresDe(grupo.proveedor, paletas);
 
                     return (
                         <section
@@ -612,7 +619,7 @@ export default function CarritoCliente({
                     {/* Desglose por proveedor: mismo patrón visual que el ranking. */}
                     <ul className="mt-4 flex flex-col gap-1">
                         {grupos.map((grupo) => {
-                            const colores = coloresDe(grupo.proveedor);
+                            const colores = coloresDe(grupo.proveedor, paletas);
 
                             return (
                                 <li
