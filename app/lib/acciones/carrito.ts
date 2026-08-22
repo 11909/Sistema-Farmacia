@@ -3,7 +3,13 @@
 import { refresh } from "next/cache";
 import { obtenerSesion } from "../sesion";
 import { agregarAlCarrito, guardarCarrito, leerCarrito } from "../carrito";
-import type { LineaCarrito, PartidaGuardada } from "../tiposCarrito";
+import { puedeVerPrecios } from "../permisos";
+import {
+    sinPrecios,
+    type LineaVisible,
+    type PartidaGuardada,
+} from "../tiposCarrito";
+import type { Rol } from "../credenciales";
 
 /**
  * Acciones de servidor del carrito.
@@ -16,8 +22,19 @@ import type { LineaCarrito, PartidaGuardada } from "../tiposCarrito";
  */
 
 export type ResultadoGuardado =
-    | { ok: true; lineas: LineaCarrito[] }
+    | { ok: true; lineas: LineaVisible[] }
     | { ok: false; motivo: "sin-sesion" | "error" };
+
+/**
+ * Recorta las partidas a lo que el rol tiene permitido ver.
+ *
+ * Se aplica en la frontera con el cliente, justo antes de devolver: lo que sale
+ * de una Server Action va al navegador, así que es aquí donde tiene que caer el
+ * filtro y no en el componente que pinta.
+ */
+function paraElRol(lineas: Parameters<typeof sinPrecios>[0], rol: Rol) {
+    return puedeVerPrecios(rol) ? lineas : sinPrecios(lineas);
+}
 
 /** Valida lo que llega del cliente antes de tocar la hoja. */
 function sanearPartidas(valor: unknown): PartidaGuardada[] {
@@ -74,7 +91,7 @@ export async function guardarCarritoDeSesion(
         // barra superior, que se renderiza en el layout, refleje el cambio.
         refresh();
 
-        return { ok: true, lineas };
+        return { ok: true, lineas: paraElRol(lineas, rol) };
     } catch (error) {
         console.error(
             "[carrito] No se pudo guardar el carrito:",
@@ -113,7 +130,7 @@ export async function agregarAlCarritoDeSesion(
             proveedor,
         );
         refresh();
-        return { ok: true, lineas };
+        return { ok: true, lineas: paraElRol(lineas, rol) };
     } catch (error) {
         console.error(
             "[carrito] No se pudo agregar al carrito:",
@@ -123,11 +140,12 @@ export async function agregarAlCarritoDeSesion(
     }
 }
 
-/** Carrito guardado de la cuenta en sesión. */
-export async function leerCarritoDeSesion(): Promise<LineaCarrito[]> {
+/** Carrito guardado de la cuenta en sesión, sin los importes que no le tocan. */
+export async function leerCarritoDeSesion(): Promise<LineaVisible[]> {
     const sesion = await obtenerSesion();
     const email = sesion?.user?.email;
-    if (!email) return [];
+    const rol = sesion?.user?.rol;
+    if (!email || !rol) return [];
 
-    return leerCarrito(email);
+    return paraElRol(await leerCarrito(email), rol);
 }

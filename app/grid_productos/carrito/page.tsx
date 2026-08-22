@@ -4,6 +4,8 @@ import Link from "next/link";
 import { requerirSesion } from "../../lib/sesion";
 import { leerCarritoDeRender } from "../../lib/carrito";
 import { obtenerCatalogo } from "../../lib/catalogo";
+import { puedeVerPrecios } from "../../lib/permisos";
+import { sinPrecios } from "../../lib/tiposCarrito";
 import CarritoCliente from "../../ui/grid_productos/CarritoCliente";
 
 export const metadata: Metadata = {
@@ -24,6 +26,12 @@ export default async function Carrito() {
         leerCarritoDeRender(sesion.user!.email!),
         obtenerCatalogo(),
     ]);
+
+    // Las sucursales no ven importes. Los precios se quitan aquí, antes de
+    // pasar las partidas a `CarritoCliente`: es un componente de cliente, así
+    // que todo lo que reciba como prop viaja al navegador.
+    const mostrarPrecios = puedeVerPrecios(sesion.user?.rol);
+    const visibles = mostrarPrecios ? lineas : sinPrecios(lineas);
 
     // El fondo degradado y la barra superior los aporta `layout.tsx` del
     // segmento, así que aquí solo va el contenido de la página.
@@ -55,8 +63,9 @@ export default async function Carrito() {
                     componente de cliente; la página se mantiene en el servidor y
                     solo le entrega el carrito guardado de la cuenta. */}
                 <CarritoCliente
-                    lineasIniciales={lineas}
+                    lineasIniciales={visibles}
                     paletas={catalogo.paletas}
+                    mostrarPrecios={mostrarPrecios}
                 />
             </div>
         </main>

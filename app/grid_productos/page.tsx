@@ -9,6 +9,8 @@ import {
     precioCompacto,
 } from "../ui/grid_productos/coloresProveedor";
 import type { PaletasProveedor } from "../lib/proveedores";
+import { requerirSesion } from "../lib/sesion";
+import { puedeVerPrecios } from "../lib/permisos";
 // El catálogo vive en `app/lib/catalogo.ts` porque el carrito también lo
 // necesita para reconstruir sus partidas desde los códigos de barras guardados.
 import {
@@ -53,8 +55,11 @@ function IconoAhorro() {
  */
 function RankingProveedores({
     ordenados,
+    mostrarPrecios,
 }: {
     ordenados: PrecioProveedor[];
+    /** Con `false` se ve el orden de proveedores pero no los importes. */
+    mostrarPrecios: boolean;
 }) {
     const ganador = ordenados.find((p) => p.disponible);
 
@@ -119,17 +124,19 @@ function RankingProveedores({
                                 }`}
                         />
 
-                        {p.disponible ? (
-                            <span
-                                className={`shrink-0 font-mono text-sm tabular-nums ${esGanador ? "font-bold text-gray-900" : "font-semibold text-gray-700"
-                                    }`}
-                            >
-                                {formatoPrecio(p.precio)}
-                            </span>
-                        ) : (
+                        {!p.disponible ? (
                             <span className="shrink-0 text-[13px] font-semibold text-rose-400">
                                 Agotado
                             </span>
+                        ) : (
+                            mostrarPrecios && (
+                                <span
+                                    className={`shrink-0 font-mono text-sm tabular-nums ${esGanador ? "font-bold text-gray-900" : "font-semibold text-gray-700"
+                                        }`}
+                                >
+                                    {formatoPrecio(p.precio)}
+                                </span>
+                            )
                         )}
                     </li>
                 );
@@ -141,10 +148,19 @@ function RankingProveedores({
 function TarjetaProducto({
     medicamento,
     paletas,
+    mostrarPrecios,
 }: {
     medicamento: Medicamento;
     /** Colores de burbujas de `Lista_Proveedores`, para teñir el banner. */
     paletas: PaletasProveedor;
+    /**
+     * Si se pintan los importes. Con `false` la tarjeta enseña el ranking de
+     * proveedores y el ganador, pero ningún precio.
+     *
+     * Como es un componente de servidor, lo que no se pinta aquí tampoco llega
+     * al navegador: no hay precio escondido en el HTML ni en el payload.
+     */
+    mostrarPrecios: boolean;
 }) {
     // Orden ascendente por precio; los agotados van al final.
     const ordenados = ofertasOrdenadas(medicamento);
@@ -181,9 +197,11 @@ function TarjetaProducto({
                 <BotonCopiarCodigo codigo={medicamento.codigoBarras} />
             </div>
 
-            {/* Resumen: cobertura de proveedores y ahorro */}
+            {/* Resumen: ahorro respecto al proveedor más caro. El porcentaje se
+                deriva de los precios, así que también es dato de importe y solo
+                lo ve quien puede verlos. */}
             <div className="mt-4 flex items-center justify-between gap-2 border-t border-gray-100 text-[13px]">
-                {ahorro > 0 && (
+                {mostrarPrecios && ahorro > 0 && (
                     <span className="flex items-center gap-1.5 font-semibold text-emerald-600">
                         <IconoAhorro />
                         Ahorra {ahorro}%
@@ -207,17 +225,32 @@ function TarjetaProducto({
 
                     <div className="flex items-start justify-between gap-2">
                         <p className="text-[11px] font-bold uppercase tracking-[0.12em] opacity-75">
-                            {disponibles.length > 1 ? "Mejor precio" : "Único proveedor"}
+                            {disponibles.length === 1
+                                ? "Único proveedor"
+                                : mostrarPrecios
+                                    ? "Mejor precio"
+                                    : "Proveedor sugerido"}
                         </p>
-                        <p className="text-base font-bold leading-none">
-                            {ganador.proveedor}
-                        </p>
+                        {/* Con precios el nombre del proveedor va arriba, porque
+                            el dato grande es el importe. Sin ellos el proveedor
+                            pasa a ser el dato grande y aquí sobraría. */}
+                        {mostrarPrecios && (
+                            <p className="text-base font-bold leading-none">
+                                {ganador.proveedor}
+                            </p>
+                        )}
                     </div>
                     <div className="mt-2 flex items-end justify-between gap-2">
-                        <p className="font-mono text-3xl font-bold leading-none tabular-nums">
-                            {formatoPrecio(menorPrecio)}
-                        </p>
-                        {menorPrecio !== mayorPrecio && (
+                        {mostrarPrecios ? (
+                            <p className="font-mono text-3xl font-bold leading-none tabular-nums">
+                                {formatoPrecio(menorPrecio)}
+                            </p>
+                        ) : (
+                            <p className="text-2xl font-bold leading-tight">
+                                {ganador.proveedor}
+                            </p>
+                        )}
+                        {mostrarPrecios && menorPrecio !== mayorPrecio && (
                             <p className="text-right text-xs leading-tight opacity-75">
                                 rango
                                 <br />
@@ -226,19 +259,24 @@ function TarjetaProducto({
                                 </span>
                             </p>
                         )}
-                        {menorPrecio === mayorPrecio && ganador.unidad && (
-                            <p className="text-right text-xs leading-tight opacity-75">
-                                por
-                                <br />
-                                <span className="font-semibold">{ganador.unidad}</span>
-                            </p>
-                        )}
+                        {(!mostrarPrecios || menorPrecio === mayorPrecio) &&
+                            ganador.unidad && (
+                                <p className="text-right text-xs leading-tight opacity-75">
+                                    por
+                                    <br />
+                                    <span className="font-semibold">{ganador.unidad}</span>
+                                </p>
+                            )}
                     </div>
                 </div>
             )}
 
-            {/* Ranking completo */}
-            <RankingProveedores ordenados={ordenados} />
+            {/* Ranking completo. Es lo que ve una sucursal: el orden de
+                proveedores de más barato a más caro, sin los importes. */}
+            <RankingProveedores
+                ordenados={ordenados}
+                mostrarPrecios={mostrarPrecios}
+            />
 
             {/* El proveedor que se agrega es el ganador del comparador: el más
                 barato entre los disponibles. */}
@@ -294,12 +332,19 @@ export default async function GridProductos({
 }: {
     searchParams: Promise<{ q?: string; p?: string }>;
 }) {
-    const [parametros, catalogo] = await Promise.all([
+    const [parametros, catalogo, sesion] = await Promise.all([
         searchParams,
         // Trae los productos, sus precios por proveedor y las paletas de color
         // en una sola lectura de la hoja.
         obtenerCatalogo(),
+        // El layout del segmento ya exige sesión, pero aquí hace falta el rol
+        // para decidir qué se enseña, así que se vuelve a pedir en lugar de
+        // confiar en el padre.
+        requerirSesion("/grid_productos"),
     ]);
+
+    // Las sucursales ven el ranking de proveedores pero no los precios.
+    const mostrarPrecios = puedeVerPrecios(sesion.user?.rol);
 
     const q = (parametros.q ?? "").trim();
 
@@ -374,6 +419,7 @@ export default async function GridProductos({
                             key={med.codigoBarras}
                             medicamento={med}
                             paletas={catalogo.paletas}
+                            mostrarPrecios={mostrarPrecios}
                         />
                     ))}
                 </div>
