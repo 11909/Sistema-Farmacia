@@ -1,33 +1,26 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import BotonCopiarCodigo from "./BotonCopiarCodigo";
 import BurbujasPrecio from "./BurbujasPrecio";
 import { coloresDe, formatoPrecio } from "./coloresProveedor";
+import type { PaletasProveedor } from "../../lib/proveedores";
+import { guardarCarritoDeSesion } from "../../lib/acciones/carrito";
+import {
+    acotarCantidad,
+    CANTIDAD_MAXIMA,
+    type LineaCarrito,
+} from "../../lib/tiposCarrito";
 
-/** Una partida del pedido: un medicamento comprado a un proveedor concreto. */
-export type LineaCarrito = {
-    id: number;
-    nombre: string;
-    presentacion: string;
-    codigoBarras: string;
-    /** Proveedor elegido en el comparador. */
-    proveedor: string;
-    /** Precio unitario del proveedor elegido. */
-    precioUnitario: number;
-    /**
-     * Precio unitario más alto entre los proveedores disponibles. Sirve para
-     * calcular el ahorro de haber comprado en el comparador; si no se conoce se
-     * omite y la línea simplemente no aporta ahorro.
-     */
-    precioMasAlto?: number;
-    cantidad: number;
-    /** Piezas que el proveedor tiene en existencia (tope del selector). */
-    existencias: number;
-};
-
-const CANTIDAD_MAXIMA = 99;
+/**
+ * Margen antes de guardar en la hoja.
+ *
+ * Pulsar `+` cinco veces son cinco cambios de estado pero un solo guardado:
+ * cada escritura son varias llamadas a la API de Sheets y no conviene lanzarlas
+ * por cada clic.
+ */
+const ESPERA_GUARDADO_MS = 700;
 
 function IconoAhorro() {
     return (
@@ -210,8 +203,8 @@ function SelectorCantidad({
 
 type FilaProductoProps = {
     linea: LineaCarrito;
-    onCantidad: (id: number, cantidad: number) => void;
-    onEliminar: (id: number) => void;
+    onCantidad: (id: string, cantidad: number) => void;
+    onEliminar: (id: string) => void;
 };
 
 /** Una partida del pedido dentro del grupo de su proveedor. */
@@ -227,15 +220,16 @@ function FilaProducto({ linea, onCantidad, onEliminar }: FilaProductoProps) {
         <li className="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:gap-5 sm:px-7">
             {/* Identificación del medicamento */}
             <div className="min-w-0 flex-1">
+                {/* Texto plano y no enlace: no hay ficha de producto a la que
+                    llevar, `/grid_productos/[codigo]` no existe como ruta. */}
                 <h3 className="text-base font-bold leading-snug text-gray-900">
-                    <Link
-                        href={`/grid_productos/${linea.id}`}
-                        className="transition hover:text-blue-700 focus:outline-none focus-visible:underline"
-                    >
-                        {linea.nombre}
-                    </Link>
+                    {linea.nombre}
                 </h3>
-                <p className="mt-0.5 text-[13px] text-gray-500">{linea.presentacion}</p>
+                {linea.unidad && (
+                    <p className="mt-0.5 text-[13px] text-gray-500">
+                        Se surte por {linea.unidad}
+                    </p>
+                )}
 
                 <div className="mt-1.5 flex items-center gap-1.5">
                     <span className="font-mono text-[13px] tracking-tight text-gray-400">
@@ -297,6 +291,35 @@ function FilaProducto({ linea, onCantidad, onEliminar }: FilaProductoProps) {
     );
 }
 
+/**
+ * Estado de sincronización con la hoja.
+ *
+ * `aria-live="polite"` para que un lector de pantalla anuncie el cambio sin
+ * interrumpir; el carrito se guarda solo y sin esto no habría forma de saberlo.
+ */
+function EstadoGuardado({
+    estado,
+}: {
+    estado: "sincronizado" | "guardando" | "error";
+}) {
+    if (estado === "error") {
+        return (
+            <p
+                aria-live="polite"
+                className="text-sm font-semibold text-rose-600"
+            >
+                No se pudo guardar el carrito
+            </p>
+        );
+    }
+
+    return (
+        <p aria-live="polite" className="text-sm text-gray-400">
+            {estado === "guardando" ? "Guardando..." : "Carrito guardado"}
+        </p>
+    );
+}
+
 /** Carrito vacío: mismo lenguaje de tarjeta, con la salida hacia el catálogo. */
 function CarritoVacio() {
     return (
@@ -323,28 +346,70 @@ function CarritoVacio() {
 
 export default function CarritoCliente({
     lineasIniciales,
+    paletas,
 }: {
     lineasIniciales: LineaCarrito[];
+    /**
+     * Colores de burbujas de `Lista_Proveedores`. Llegan como prop desde la
+     * página: leerlos aquí obligaría a traer el cliente de Sheets al navegador.
+     */
+    paletas: PaletasProveedor;
 }) {
     const [lineas, setLineas] = useState<LineaCarrito[]>(lineasIniciales);
+    const [estadoGuardado, setEstadoGuardado] = useState<
+        "sincronizado" | "guardando" | "error"
+    >("sincronizado");
 
-    function cambiarCantidad(id: number, cantidad: number) {
+    /**
+     * El primer render no debe guardar: `lineas` viene del servidor y escribirlo
+     * de vuelta sería una escritura inútil en cada visita a la página.
+     */
+    const yaMontado = useRef(false);
+
+    useEffect(() => {
+        if (!yaMontado.current) {
+            yaMontado.current = true;
+            return;
+        }
+
+        let cancelado = false;
+
+        const temporizador = setTimeout(async () => {
+            setEstadoGuardado("guardando");
+
+            // Solo se manda lo que la hoja guarda; nombre y precios los
+            // resuelve el servidor desde el catálogo.
+            const resultado = await guardarCarritoDeSesion(
+                lineas.map((l) => ({
+                    codigoBarras: l.codigoBarras,
+                    proveedor: l.proveedor,
+                    cantidad: l.cantidad,
+                })),
+            );
+
+            if (cancelado) return;
+            setEstadoGuardado(resultado.ok ? "sincronizado" : "error");
+        }, ESPERA_GUARDADO_MS);
+
+        // Si `lineas` cambia antes de que venza la espera, se descarta el
+        // guardado pendiente y se reinicia con el estado más reciente.
+        return () => {
+            cancelado = true;
+            clearTimeout(temporizador);
+        };
+    }, [lineas]);
+
+    function cambiarCantidad(id: string, cantidad: number) {
         setLineas((actuales) =>
             actuales.map((l) =>
                 l.id === id
-                    ? {
-                        ...l,
-                        cantidad: Math.min(
-                            Math.max(cantidad, 1),
-                            Math.min(l.existencias, CANTIDAD_MAXIMA),
-                        ),
-                    }
+                    ? { ...l, cantidad: acotarCantidad(cantidad, l.existencias) }
                     : l,
             ),
         );
     }
 
-    function eliminar(id: number) {
+    function eliminar(id: string) {
         setLineas((actuales) => actuales.filter((l) => l.id !== id));
     }
 
@@ -403,7 +468,7 @@ export default function CarritoCliente({
             {/* Partidas del pedido, agrupadas por proveedor */}
             <div className="flex flex-col gap-6 lg:col-span-2">
                 {grupos.map((grupo) => {
-                    const colores = coloresDe(grupo.proveedor);
+                    const colores = coloresDe(grupo.proveedor, paletas);
 
                     return (
                         <section
@@ -499,13 +564,16 @@ export default function CarritoCliente({
                         Seguir comparando precios
                     </Link>
 
-                    <button
-                        type="button"
-                        onClick={() => setLineas([])}
-                        className="text-sm font-medium text-gray-500 transition hover:text-rose-600 focus:outline-none focus-visible:underline"
-                    >
-                        Vaciar carrito
-                    </button>
+                    <div className="flex items-center gap-4">
+                        <EstadoGuardado estado={estadoGuardado} />
+                        <button
+                            type="button"
+                            onClick={() => setLineas([])}
+                            className="text-sm font-medium text-gray-500 transition hover:text-rose-600 focus:outline-none focus-visible:underline"
+                        >
+                            Vaciar carrito
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -552,7 +620,7 @@ export default function CarritoCliente({
                     {/* Desglose por proveedor: mismo patrón visual que el ranking. */}
                     <ul className="mt-4 flex flex-col gap-1">
                         {grupos.map((grupo) => {
-                            const colores = coloresDe(grupo.proveedor);
+                            const colores = coloresDe(grupo.proveedor, paletas);
 
                             return (
                                 <li

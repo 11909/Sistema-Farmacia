@@ -1,5 +1,9 @@
 import Link from "next/link";
 import IconoLogin from "../ui/shared/IconoLogin";
+import BotonCerrarSesion from "../ui/shared/BotonCerrarSesion";
+import CampoBusqueda from "../ui/grid_productos/CampoBusqueda";
+import { requerirSesion } from "../lib/sesion";
+import { contarPiezas } from "../lib/carrito";
 
 /**
  * Layout del segmento /grid_productos.
@@ -10,11 +14,17 @@ import IconoLogin from "../ui/shared/IconoLogin";
  * dentro del segmento y `loading.tsx` ya los hereda, así que el esqueleto de
  * carga se ve con el mismo fondo y la misma barra, sin saltos de layout.
  */
-export default function GridProductosLayout({
+export default async function GridProductosLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
+    // Puerta de entrada al segmento: sin sesión válida se redirige al login.
+    // El layout corre antes que sus páginas hijas, así que esto cubre
+    // /grid_productos y /grid_productos/carrito con una sola comprobación.
+    const sesion = await requerirSesion("/grid_productos");
+    const piezas = await contarPiezas(sesion.user!.email!);
+
     return (
         <div className="relative min-h-screen font-sans">
             {/* Fondo: degradado suave azul -> blanco. Va en una capa fija al
@@ -64,37 +74,7 @@ export default function GridProductosLayout({
                         </span>
                     </Link>
 
-                    <form
-                        role="search"
-                        className="order-3 w-full flex-1 sm:order-none sm:w-auto sm:min-w-64"
-                    >
-                        <label htmlFor="buscar" className="sr-only">
-                            Buscar
-                        </label>
-                        <div className="relative">
-                            <svg
-                                aria-hidden="true"
-                                className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth={2}
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"
-                                />
-                            </svg>
-                            <input
-                                id="buscar"
-                                name="q"
-                                type="search"
-                                placeholder="Buscar medicamentos por código de barras"
-                                className="w-full rounded-lg border border-white/60 bg-white/50 py-2.5 pl-10 pr-4 text-sm text-gray-800 backdrop-blur-sm transition placeholder:text-gray-500 focus:border-transparent focus:bg-white/80 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                        </div>
-                    </form>
+                    <CampoBusqueda />
 
                     {/* Un <Link> y no un <button> con un <a> dentro: anidar un
                         enlace en un botón es HTML inválido y rompe la
@@ -118,10 +98,32 @@ export default function GridProductosLayout({
                             />
                         </svg>
                         <span className="hidden sm:inline">Carrito</span>
-                        <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-[11px] font-bold text-white">
-                            6
-                        </span>
+                        {/* Piezas realmente guardadas en el carrito de la
+                            cuenta. Se oculta en cero para no mostrar una
+                            insignia vacía. */}
+                        {piezas > 0 && (
+                            <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1 text-[11px] font-bold text-white">
+                                {piezas}
+                            </span>
+                        )}
                     </Link>
+
+                    {/* Cuenta en sesión + salida */}
+                    <div className="flex items-center gap-3">
+                        <span className="hidden text-right text-sm leading-tight md:block">
+                            <span className="block font-semibold text-gray-800">
+                                {sesion.user?.name}
+                            </span>
+                            <span className="block text-xs text-gray-500">
+                                {sesion.user?.rol === "sucursal"
+                                    ? "Sucursal"
+                                    : "Administrador"}
+                                {" · "}
+                                {sesion.user?.email}
+                            </span>
+                        </span>
+                        <BotonCerrarSesion />
+                    </div>
                 </div>
             </header>
 

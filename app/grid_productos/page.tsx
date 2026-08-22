@@ -1,176 +1,32 @@
 // Comparador de precios por proveedor
-import { Suspense } from "react";
 import Link from "next/link";
-import CardSkeleton from "../ui/grid_productos/CardSkeleton";
 import BotonCopiarCodigo from "../ui/grid_productos/BotonCopiarCodigo";
+import BotonAgregarCarrito from "../ui/grid_productos/BotonAgregarCarrito";
 import BurbujasPrecio from "../ui/grid_productos/BurbujasPrecio";
 import {
-    COLOR_NEUTRO,
-    COLOR_PROVEEDOR,
+    coloresDe,
     formatoPrecio,
     precioCompacto,
 } from "../ui/grid_productos/coloresProveedor";
+import type { PaletasProveedor } from "../lib/proveedores";
+// El catálogo vive en `app/lib/catalogo.ts` porque el carrito también lo
+// necesita para reconstruir sus partidas desde los códigos de barras guardados.
+import {
+    normalizarTexto,
+    obtenerCatalogo,
+    ofertasOrdenadas,
+    type Medicamento,
+    type PrecioProveedor,
+} from "../lib/catalogo";
 
-type PrecioProveedor = {
-    proveedor: string;
-    precio: number;
-    disponible: boolean;
-};
-
-type Medicamento = {
-    id: number;
-    nombre: string;
-    presentacion: string;
-    codigoBarras: string;
-    precios: PrecioProveedor[];
-};
-
-const MEDICAMENTOS: Medicamento[] = [
-    {
-        id: 1,
-        nombre: "Paracetamol 500 mg",
-        presentacion: "Caja con 20 tabletas",
-        codigoBarras: "7501234567890",
-        precios: [
-            { proveedor: "City", precio: 45, disponible: true },
-            { proveedor: "Farmater", precio: 52, disponible: true },
-            { proveedor: "Ofasa", precio: 48.5, disponible: true },
-            { proveedor: "Tenorio", precio: 60, disponible: true },
-        ],
-    },
-    {
-        id: 2,
-        nombre: "Loratadina 10 mg",
-        presentacion: "Caja con 20 tabletas",
-        codigoBarras: "7509876543210",
-        precios: [
-            { proveedor: "City", precio: 62, disponible: true },
-            { proveedor: "Farmater", precio: 58, disponible: true },
-            { proveedor: "Ofasa", precio: 65, disponible: true },
-            { proveedor: "Tenorio", precio: 55, disponible: true },
-        ],
-    },
-    {
-        id: 3,
-        nombre: "Amoxicilina 500 mg",
-        presentacion: "Caja con 12 cápsulas",
-        codigoBarras: "7501122334455",
-        precios: [
-            { proveedor: "City", precio: 152, disponible: true },
-            { proveedor: "Farmater", precio: 145, disponible: true },
-            { proveedor: "Ofasa", precio: 160, disponible: false },
-            { proveedor: "Tenorio", precio: 148, disponible: true },
-        ],
-    },
-    {
-        id: 4,
-        nombre: "Ibuprofeno 400 mg",
-        presentacion: "Caja con 30 tabletas",
-        codigoBarras: "7505566778899",
-        precios: [
-            { proveedor: "City", precio: 88.5, disponible: true },
-            { proveedor: "Farmater", precio: 92, disponible: true },
-            { proveedor: "Ofasa", precio: 85, disponible: true },
-            { proveedor: "Tenorio", precio: 100, disponible: true },
-        ],
-    },
-    {
-        id: 5,
-        nombre: "Omeprazol 20 mg",
-        presentacion: "Caja con 14 cápsulas",
-        codigoBarras: "7502233445566",
-        precios: [
-            { proveedor: "City", precio: 89, disponible: true },
-            { proveedor: "Farmater", precio: 95, disponible: true },
-            { proveedor: "Ofasa", precio: 82, disponible: true },
-            { proveedor: "Tenorio", precio: 110, disponible: false },
-        ],
-    },
-    {
-        id: 6,
-        nombre: "Vitamina C 1 g",
-        presentacion: "30 tabletas efervescentes",
-        codigoBarras: "7503344556677",
-        precios: [
-            { proveedor: "City", precio: 135, disponible: true },
-            { proveedor: "Farmater", precio: 128, disponible: true },
-            { proveedor: "Ofasa", precio: 140, disponible: true },
-            { proveedor: "Tenorio", precio: 125, disponible: true },
-        ],
-    },
-    {
-        id: 7,
-        nombre: "Jarabe expectorante",
-        presentacion: "Frasco de 120 ml",
-        codigoBarras: "7504455667788",
-        precios: [
-            { proveedor: "City", precio: 98, disponible: true },
-            { proveedor: "Farmater", precio: 105, disponible: false },
-            { proveedor: "Ofasa", precio: 92, disponible: true },
-            { proveedor: "Tenorio", precio: 99, disponible: true },
-        ],
-    },
-    {
-        id: 8,
-        nombre: "Gel antibacterial 70%",
-        presentacion: "Botella de 500 ml",
-        codigoBarras: "7505566778800",
-        precios: [
-            { proveedor: "City", precio: 55, disponible: true },
-            { proveedor: "Farmater", precio: 60, disponible: true },
-            { proveedor: "Ofasa", precio: 52, disponible: true },
-            { proveedor: "Tenorio", precio: 58, disponible: true },
-        ],
-    },
-    {
-        id: 9,
-        nombre: "Crema hidratante corporal",
-        presentacion: "Tubo de 100 g",
-        codigoBarras: "7506677889900",
-        precios: [
-            { proveedor: "City", precio: 124, disponible: true },
-            { proveedor: "Farmater", precio: 118, disponible: true },
-            { proveedor: "Ofasa", precio: 130, disponible: true },
-            { proveedor: "Tenorio", precio: 115, disponible: true },
-        ],
-    },
-    {
-        id: 10,
-        nombre: "Suero oral electrolitos",
-        presentacion: "Botella de 625 ml",
-        codigoBarras: "7507788990011",
-        precios: [
-            { proveedor: "City", precio: 32, disponible: true },
-            { proveedor: "Farmater", precio: 35, disponible: true },
-            { proveedor: "Ofasa", precio: 30, disponible: true },
-            { proveedor: "Tenorio", precio: 38, disponible: false },
-        ],
-    },
-    {
-        id: 11,
-        nombre: "Termómetro digital",
-        presentacion: "1 pieza con estuche",
-        codigoBarras: "7508899001122",
-        precios: [
-            { proveedor: "City", precio: 249, disponible: true },
-            { proveedor: "Farmater", precio: 235, disponible: true },
-            { proveedor: "Ofasa", precio: 260, disponible: true },
-            { proveedor: "Tenorio", precio: 240, disponible: true },
-        ],
-    },
-    {
-        id: 12,
-        nombre: "Cubrebocas KN95",
-        presentacion: "Caja con 10 piezas",
-        codigoBarras: "7509900112233",
-        precios: [
-            { proveedor: "City", precio: 89, disponible: true },
-            { proveedor: "Farmater", precio: 82, disponible: true },
-            { proveedor: "Ofasa", precio: 95, disponible: false },
-            { proveedor: "Tenorio", precio: 85, disponible: true },
-        ],
-    },
-];
+/**
+ * Tarjetas por página.
+ *
+ * La hoja tiene unos 9 700 productos: pintarlos todos daría una respuesta de
+ * decenas de megabytes y un DOM inmanejable. Es múltiplo de 3 para que la
+ * última fila del grid quede completa en pantallas anchas.
+ */
+const POR_PAGINA = 24;
 
 function IconoAhorro() {
     return (
@@ -196,18 +52,29 @@ function IconoAhorro() {
  * mandan al final y se muestran atenuados, ya que no compiten por el precio.
  */
 function RankingProveedores({
-    precios,
     ordenados,
 }: {
-    precios: PrecioProveedor[];
     ordenados: PrecioProveedor[];
 }) {
     const ganador = ordenados.find((p) => p.disponible);
 
+    // La mayoría de los productos de la hoja solo tiene un proveedor, así que
+    // conviene decirlo en lugar de pintar una comparativa de un solo renglón
+    // como si fuera el resultado de comparar.
+    if (ordenados.length === 0) {
+        return (
+            <p className="mt-4 rounded-xl bg-gray-50 px-3 py-2.5 text-[13px] text-gray-500">
+                Sin precios registrados en la hoja.
+            </p>
+        );
+    }
+
     return (
         <ul className="mt-4 flex flex-col gap-1">
             {ordenados.map((p, idx) => {
-                const colores = COLOR_PROVEEDOR[p.proveedor] ?? COLOR_NEUTRO;
+                // Sin paletas de la hoja: el ranking solo usa clases de
+                // Tailwind (`fila`, `insignia`, `guion`), no las burbujas.
+                const colores = coloresDe(p.proveedor);
                 const esGanador = p === ganador;
 
                 return (
@@ -271,12 +138,16 @@ function RankingProveedores({
     );
 }
 
-function TarjetaProducto({ medicamento }: { medicamento: Medicamento }) {
+function TarjetaProducto({
+    medicamento,
+    paletas,
+}: {
+    medicamento: Medicamento;
+    /** Colores de burbujas de `Lista_Proveedores`, para teñir el banner. */
+    paletas: PaletasProveedor;
+}) {
     // Orden ascendente por precio; los agotados van al final.
-    const ordenados = [...medicamento.precios].sort((a, b) => {
-        if (a.disponible !== b.disponible) return a.disponible ? -1 : 1;
-        return a.precio - b.precio;
-    });
+    const ordenados = ofertasOrdenadas(medicamento);
 
     const disponibles = ordenados.filter((p) => p.disponible);
     const ganador = disponibles[0] ?? null;
@@ -292,20 +163,15 @@ function TarjetaProducto({ medicamento }: { medicamento: Medicamento }) {
             ? Math.floor(((mayorPrecio - menorPrecio) / mayorPrecio) * 100)
             : 0;
 
-    const colores = ganador
-        ? COLOR_PROVEEDOR[ganador.proveedor] ?? COLOR_NEUTRO
-        : COLOR_NEUTRO;
+    const colores = coloresDe(ganador?.proveedor, paletas);
 
     return (
         <article className="flex flex-col rounded-3xl bg-white p-7 shadow-sm ring-1 ring-gray-200/80 transition duration-200 hover:-translate-y-1 hover:shadow-xl hover:shadow-gray-900/5 hover:ring-gray-300">
-            {/* Encabezado: nombre y código de barras */}
+            {/* Encabezado: nombre y código de barras, los dos de `Producto`.
+                El nombre va en texto plano porque no hay ficha de producto a la
+                que enlazar: `/grid_productos/[codigo]` no existe como ruta. */}
             <h3 className="text-lg font-bold leading-snug text-gray-900">
-                <Link
-                    href={`/grid_productos/${medicamento.id}`}
-                    className="transition hover:text-blue-700 focus:outline-none focus-visible:underline"
-                >
-                    {medicamento.nombre}
-                </Link>
+                {medicamento.nombre}
             </h3>
 
             <div className="mt-1.5 flex items-center gap-1.5">
@@ -334,14 +200,14 @@ function TarjetaProducto({ medicamento }: { medicamento: Medicamento }) {
                         contenido sin sacarlo de la tarjeta. */}
                     <div className="absolute inset-0 -z-10">
                         <BurbujasPrecio
-                            idFiltro={`goo-precio-${medicamento.id}`}
+                            idFiltro={`goo-precio-${medicamento.codigoBarras}`}
                             paleta={colores.burbujas}
                         />
                     </div>
 
                     <div className="flex items-start justify-between gap-2">
                         <p className="text-[11px] font-bold uppercase tracking-[0.12em] opacity-75">
-                            Mejor precio
+                            {disponibles.length > 1 ? "Mejor precio" : "Único proveedor"}
                         </p>
                         <p className="text-base font-bold leading-none">
                             {ganador.proveedor}
@@ -360,86 +226,225 @@ function TarjetaProducto({ medicamento }: { medicamento: Medicamento }) {
                                 </span>
                             </p>
                         )}
+                        {menorPrecio === mayorPrecio && ganador.unidad && (
+                            <p className="text-right text-xs leading-tight opacity-75">
+                                por
+                                <br />
+                                <span className="font-semibold">{ganador.unidad}</span>
+                            </p>
+                        )}
                     </div>
                 </div>
             )}
 
             {/* Ranking completo */}
-            <RankingProveedores
-                precios={medicamento.precios}
-                ordenados={ordenados}
-            />
+            <RankingProveedores ordenados={ordenados} />
 
-            <button
-                type="button"
-                disabled={!ganador}
-                className="mt-5 w-full rounded-2xl bg-slate-800 px-5 py-4 text-base font-semibold text-white transition hover:bg-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-300"
-            >
-                Agregar al carrito
-            </button>
+            {/* El proveedor que se agrega es el ganador del comparador: el más
+                barato entre los disponibles. */}
+            <BotonAgregarCarrito
+                codigoBarras={medicamento.codigoBarras}
+                proveedor={ganador?.proveedor ?? null}
+                nombre={medicamento.nombre}
+            />
         </article>
     );
 }
 
-export default function GridProductos() {
+/**
+ * Números de página a mostrar, con `null` donde va una elipsis.
+ *
+ * Con ~400 páginas no se pueden listar todas: se muestran la primera, la
+ * última y una ventana alrededor de la actual.
+ */
+function ventanaDePaginas(actual: number, total: number): (number | null)[] {
+    if (total <= 7) {
+        return Array.from({ length: total }, (_, i) => i + 1);
+    }
+
+    const paginas = new Set<number>([1, total, actual]);
+    for (const delta of [-2, -1, 1, 2]) {
+        const pagina = actual + delta;
+        if (pagina > 1 && pagina < total) paginas.add(pagina);
+    }
+
+    const ordenadas = [...paginas].sort((a, b) => a - b);
+    const conHuecos: (number | null)[] = [];
+
+    ordenadas.forEach((pagina, i) => {
+        if (i > 0 && pagina - ordenadas[i - 1] > 1) conHuecos.push(null);
+        conHuecos.push(pagina);
+    });
+
+    return conHuecos;
+}
+
+/** Enlace de paginación que conserva el término de búsqueda. */
+function enlacePagina(pagina: number, q: string): string {
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    if (pagina > 1) params.set("p", String(pagina));
+
+    const cadena = params.toString();
+    return cadena ? `/grid_productos?${cadena}` : "/grid_productos";
+}
+
+export default async function GridProductos({
+    searchParams,
+}: {
+    searchParams: Promise<{ q?: string; p?: string }>;
+}) {
+    const [parametros, catalogo] = await Promise.all([
+        searchParams,
+        // Trae los productos, sus precios por proveedor y las paletas de color
+        // en una sola lectura de la hoja.
+        obtenerCatalogo(),
+    ]);
+
+    const q = (parametros.q ?? "").trim();
+
+    // El filtro compara contra `textoBusqueda`, que ya viene normalizado, así
+    // que sirve tanto para el nombre como para el código de barras.
+    const termino = normalizarTexto(q);
+    const encontrados = termino
+        ? catalogo.medicamentos.filter((m) => m.textoBusqueda.includes(termino))
+        : catalogo.medicamentos;
+
+    const totalPaginas = Math.max(Math.ceil(encontrados.length / POR_PAGINA), 1);
+
+    // La página llega por URL, así que puede venir con cualquier cosa: se acota
+    // al rango válido en lugar de devolver una página vacía.
+    const pedida = Number.parseInt(parametros.p ?? "1", 10);
+    const pagina = Number.isFinite(pedida)
+        ? Math.min(Math.max(pedida, 1), totalPaginas)
+        : 1;
+
+    const desde = (pagina - 1) * POR_PAGINA;
+    const visibles = encontrados.slice(desde, desde + POR_PAGINA);
+
     return (
         // El fondo degradado y la barra superior viven en `layout.tsx`,
         // compartidos con las rutas hijas del segmento y con `loading.tsx`.
         <main>
             <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
                 <p className="mb-4 text-sm text-gray-500">
-                    Mostrando{" "}
-                    <span className="font-semibold text-gray-700">
-                        {MEDICAMENTOS.length}
-                    </span>{" "}
-                    medicamentos
+                    {encontrados.length > 0 ? (
+                        <>
+                            Mostrando{" "}
+                            <span className="font-semibold text-gray-700">
+                                {desde + 1}-{desde + visibles.length}
+                            </span>{" "}
+                            de{" "}
+                            <span className="font-semibold text-gray-700">
+                                {encontrados.length.toLocaleString("es-MX")}
+                            </span>{" "}
+                            productos
+                            {q && (
+                                <>
+                                    {" "}
+                                    para{" "}
+                                    <span className="font-semibold text-gray-700">“{q}”</span>
+                                </>
+                            )}
+                        </>
+                    ) : (
+                        <>
+                            Ningún producto coincide con{" "}
+                            <span className="font-semibold text-gray-700">“{q}”</span>.{" "}
+                            <Link
+                                href="/grid_productos"
+                                className="font-semibold text-blue-600 hover:underline"
+                            >
+                                Ver todo el catálogo
+                            </Link>
+                        </>
+                    )}
                 </p>
 
                 {/* Grid de tarjetas.
-                    Cada tarjeta tiene su propio límite de Suspense, así que en
-                    cuanto `TarjetaProducto` pase a leer datos (await a la BD o
-                    a la API de proveedores) cada una podrá hacer streaming por
-                    separado mostrando su esqueleto, sin bloquear a las demás. */}
+                    Sin `Suspense` por tarjeta: los precios ya vienen resueltos
+                    en `catalogo`, así que `TarjetaProducto` es síncrona y un
+                    límite por tarjeta solo añadiría 24 esqueletos a cada
+                    respuesta para luego sustituirlos. El esqueleto de la carga
+                    inicial lo pone `loading.tsx`, que cubre toda la página
+                    mientras se resuelve esta. */}
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-                    {MEDICAMENTOS.map((med) => (
-                        <Suspense key={med.id} fallback={<CardSkeleton />}>
-                            <TarjetaProducto medicamento={med} />
-                        </Suspense>
+                    {visibles.map((med) => (
+                        <TarjetaProducto
+                            key={med.codigoBarras}
+                            medicamento={med}
+                            paletas={catalogo.paletas}
+                        />
                     ))}
                 </div>
 
-                {/* Paginación */}
-                <nav
-                    aria-label="Paginación"
-                    className="mt-10 flex items-center justify-center gap-2"
-                >
-                    <button
-                        type="button"
-                        disabled
-                        className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-400 disabled:cursor-not-allowed"
+                {/* Paginación. Son enlaces y no botones para que cada página
+                    tenga su URL y funcione el historial del navegador. */}
+                {totalPaginas > 1 && (
+                    <nav
+                        aria-label="Paginación"
+                        className="mt-10 flex flex-wrap items-center justify-center gap-2"
                     >
-                        Anterior
-                    </button>
-                    {[1, 2, 3].map((pagina) => (
-                        <button
-                            key={pagina}
-                            type="button"
-                            aria-current={pagina === 1 ? "page" : undefined}
-                            className={`h-10 w-10 rounded-lg text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${pagina === 1
-                                ? "bg-blue-600 text-white"
-                                : "border border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
-                                }`}
-                        >
-                            {pagina}
-                        </button>
-                    ))}
-                    <button
-                        type="button"
-                        className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                        Siguiente
-                    </button>
-                </nav>
+                        {pagina > 1 ? (
+                            <Link
+                                href={enlacePagina(pagina - 1, q)}
+                                rel="prev"
+                                className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                Anterior
+                            </Link>
+                        ) : (
+                            <span
+                                aria-hidden="true"
+                                className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-400"
+                            >
+                                Anterior
+                            </span>
+                        )}
+
+                        {ventanaDePaginas(pagina, totalPaginas).map((n, i) =>
+                            n === null ? (
+                                <span
+                                    key={`hueco-${i}`}
+                                    aria-hidden="true"
+                                    className="px-1 text-sm text-gray-400"
+                                >
+                                    …
+                                </span>
+                            ) : (
+                                <Link
+                                    key={n}
+                                    href={enlacePagina(n, q)}
+                                    aria-current={n === pagina ? "page" : undefined}
+                                    aria-label={`Página ${n}`}
+                                    className={`flex h-10 min-w-10 items-center justify-center rounded-lg px-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${n === pagina
+                                        ? "bg-blue-600 text-white"
+                                        : "border border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
+                                        }`}
+                                >
+                                    {n}
+                                </Link>
+                            ),
+                        )}
+
+                        {pagina < totalPaginas ? (
+                            <Link
+                                href={enlacePagina(pagina + 1, q)}
+                                rel="next"
+                                className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                Siguiente
+                            </Link>
+                        ) : (
+                            <span
+                                aria-hidden="true"
+                                className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-400"
+                            >
+                                Siguiente
+                            </span>
+                        )}
+                    </nav>
+                )}
             </div>
         </main>
     );
