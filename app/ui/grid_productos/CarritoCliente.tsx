@@ -6,7 +6,10 @@ import BotonCopiarCodigo from "./BotonCopiarCodigo";
 import BurbujasPrecio from "./BurbujasPrecio";
 import { coloresDe, formatoPrecio } from "./coloresProveedor";
 import type { PaletasProveedor } from "../../lib/proveedores";
-import { guardarCarritoDeSesion } from "../../lib/acciones/carrito";
+import {
+    confirmarPedidoDeSesion,
+    guardarCarritoDeSesion,
+} from "../../lib/acciones/carrito";
 import {
     acotarCantidad,
     CANTIDAD_MAXIMA,
@@ -21,6 +24,36 @@ import {
  * por cada clic.
  */
 const ESPERA_GUARDADO_MS = 700;
+
+/** Tipo MIME de un .xlsx. Sin él el navegador lo guardaría como binario suelto. */
+const TIPO_XLSX =
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+/**
+ * Dispara la descarga de un archivo que llegó en base64.
+ *
+ * El .xlsx viene como valor de retorno de la Server Action, así que aquí se
+ * reconstruye en memoria y se baja con un enlace sintético: no hay URL que
+ * visitar, y así tampoco hace falta un endpoint que autorizar aparte.
+ */
+function descargarBase64(base64: string, nombre: string) {
+    const binario = atob(base64);
+    const bytes = new Uint8Array(binario.length);
+    for (let i = 0; i < binario.length; i++) bytes[i] = binario.charCodeAt(i);
+
+    const url = URL.createObjectURL(new Blob([bytes], { type: TIPO_XLSX }));
+
+    const enlace = document.createElement("a");
+    enlace.href = url;
+    enlace.download = nombre;
+    document.body.append(enlace);
+    enlace.click();
+    enlace.remove();
+
+    // Se libera en el siguiente turno: revocar en el mismo tick puede cancelar
+    // la descarga que el clic acaba de iniciar.
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+}
 
 function IconoAhorro() {
     return (
@@ -358,6 +391,96 @@ function CarritoVacio() {
     );
 }
 
+function IconoDescarga({ className = "h-5 w-5" }: { className?: string }) {
+    return (
+        <svg
+            aria-hidden="true"
+            className={className}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            viewBox="0 0 24 24"
+        >
+            <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 4v11m0 0l-4-4m4 4l4-4M4 19h16"
+            />
+        </svg>
+    );
+}
+
+/**
+ * Comprobante del pedido confirmado.
+ *
+ * Ocupa el sitio del carrito una vez confirmado, porque el carrito ya no
+ * existe: la hoja lo cerró con su folio y la cuenta arranca uno nuevo en cuanto
+ * agregue algo. El folio se muestra porque es la referencia con la que la
+ * farmacia encuentra el pedido en la hoja.
+ *
+ * La descarga se repite desde aquí: el navegador puede bloquear la automática,
+ * y el archivo ya está en memoria, así que volver a bajarlo no cuesta otra
+ * confirmación.
+ */
+function PedidoConfirmadoAviso({
+    folio,
+    onDescargar,
+}: {
+    folio: string;
+    onDescargar: () => void;
+}) {
+    return (
+        <div
+            aria-live="polite"
+            className="rounded-3xl bg-white p-12 text-center shadow-sm ring-1 ring-gray-200/80"
+        >
+            <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+                <svg
+                    aria-hidden="true"
+                    className="h-8 w-8"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M5 13l4 4L19 7"
+                    />
+                </svg>
+            </span>
+
+            <h2 className="mt-5 text-lg font-bold text-gray-900">
+                Pedido confirmado
+            </h2>
+            <p className="mx-auto mt-1.5 max-w-md text-sm text-gray-500">
+                Quedó registrado con el folio{" "}
+                <span className="font-mono font-bold text-gray-700">{folio}</span>{" "}
+                y se descargó la hoja de cálculo con las partidas. Tu carrito
+                está listo para el siguiente pedido.
+            </p>
+
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                <button
+                    type="button"
+                    onClick={onDescargar}
+                    className="inline-flex items-center gap-2 rounded-2xl bg-slate-800 px-6 py-3.5 text-base font-semibold text-white transition hover:bg-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                >
+                    <IconoDescarga />
+                    Descargar de nuevo
+                </button>
+                <Link
+                    href="/grid_productos"
+                    className="inline-flex items-center gap-2 rounded-2xl px-6 py-3.5 text-base font-semibold text-blue-700 transition hover:text-blue-900 focus:outline-none focus-visible:underline"
+                >
+                    Volver al catálogo
+                </Link>
+            </div>
+        </div>
+    );
+}
+
 export default function CarritoCliente({
     lineasIniciales,
     paletas,
@@ -383,6 +506,14 @@ export default function CarritoCliente({
     const [estadoGuardado, setEstadoGuardado] = useState<
         "sincronizado" | "guardando" | "error"
     >("sincronizado");
+    const [confirmando, setConfirmando] = useState(false);
+    /** Pedido ya confirmado, con su archivo, para poder volver a descargarlo. */
+    const [confirmado, setConfirmado] = useState<{
+        folio: string;
+        nombreArchivo: string;
+        archivo: string;
+    } | null>(null);
+    const [errorConfirmar, setErrorConfirmar] = useState<string | null>(null);
 
     /**
      * El primer render no debe guardar: `lineas` viene del servidor y escribirlo
@@ -390,9 +521,24 @@ export default function CarritoCliente({
      */
     const yaMontado = useRef(false);
 
+    /**
+     * Salta el guardado automático del siguiente cambio de `lineas`.
+     *
+     * Al confirmar se vacía el carrito en pantalla, y ese cambio dispararía un
+     * guardado que iría a escribir un carrito vacío en una hoja donde el folio
+     * ya está cerrado. No hay nada que sincronizar: el servidor acaba de dejar
+     * el estado bueno.
+     */
+    const omitirGuardado = useRef(false);
+
     useEffect(() => {
         if (!yaMontado.current) {
             yaMontado.current = true;
+            return;
+        }
+
+        if (omitirGuardado.current) {
+            omitirGuardado.current = false;
             return;
         }
 
@@ -435,6 +581,43 @@ export default function CarritoCliente({
 
     function eliminar(id: string) {
         setLineas((actuales) => actuales.filter((l) => l.id !== id));
+    }
+
+    /**
+     * Cierra el pedido: lo sella en la hoja y baja el .xlsx.
+     *
+     * El carrito de la pantalla solo se vacía si el servidor confirmó. Si algo
+     * falla, las partidas siguen ahí para volver a intentarlo, en lugar de dejar
+     * al usuario sin pedido y sin archivo.
+     */
+    async function confirmar() {
+        setConfirmando(true);
+        setErrorConfirmar(null);
+
+        const resultado = await confirmarPedidoDeSesion();
+        setConfirmando(false);
+
+        if (!resultado.ok) {
+            setErrorConfirmar(
+                resultado.motivo === "sin-sesion"
+                    ? "Tu sesión expiró. Vuelve a iniciar sesión para confirmar el pedido."
+                    : resultado.motivo === "vacio"
+                        ? "Este carrito ya no tiene partidas por confirmar. Actualiza la página."
+                        : "No se pudo confirmar el pedido. Inténtalo de nuevo.",
+            );
+            return;
+        }
+
+        descargarBase64(resultado.archivo, resultado.nombreArchivo);
+        setConfirmado({
+            folio: resultado.folio,
+            nombreArchivo: resultado.nombreArchivo,
+            archivo: resultado.archivo,
+        });
+
+        omitirGuardado.current = true;
+        setLineas([]);
+        setEstadoGuardado("sincronizado");
     }
 
     /**
@@ -501,6 +684,19 @@ export default function CarritoCliente({
 
         return { subtotal, piezas, ahorro, porcentaje };
     }, [lineas]);
+
+    // El comprobante gana al carrito vacío: tras confirmar las dos condiciones
+    // se cumplen, y lo que toca decir es que el pedido salió, no que no hay nada.
+    if (confirmado) {
+        return (
+            <PedidoConfirmadoAviso
+                folio={confirmado.folio}
+                onDescargar={() =>
+                    descargarBase64(confirmado.archivo, confirmado.nombreArchivo)
+                }
+            />
+        );
+    }
 
     if (lineas.length === 0) return <CarritoVacio />;
 
@@ -769,15 +965,38 @@ export default function CarritoCliente({
                         )}
                     </dl>
 
+                    {/* Confirmar cierra el pedido en la hoja y descarga su
+                        .xlsx. Se bloquea mientras hay un guardado en vuelo: si
+                        no, el último ajuste de cantidad podría quedarse fuera
+                        del pedido que se está sellando. */}
                     <button
                         type="button"
-                        className="mt-5 w-full rounded-2xl bg-slate-800 px-5 py-4 text-base font-semibold text-white transition hover:bg-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                        onClick={confirmar}
+                        disabled={confirmando || estadoGuardado === "guardando"}
+                        className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-800 px-5 py-4 text-base font-semibold text-white transition hover:bg-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-400"
                     >
-                        Confirmar pedido
+                        {confirmando ? (
+                            "Confirmando pedido..."
+                        ) : (
+                            <>
+                                <IconoDescarga className="h-5 w-5" />
+                                Confirmar pedido
+                            </>
+                        )}
                     </button>
 
+                    {errorConfirmar && (
+                        <p
+                            aria-live="polite"
+                            className="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-center text-[13px] font-semibold text-rose-700"
+                        >
+                            {errorConfirmar}
+                        </p>
+                    )}
+
                     <p className="mt-3 text-center text-xs text-gray-400">
-                        Los precios pueden variar según la disponibilidad del proveedor al
+                        Al confirmar se registra el pedido y se descarga en Excel. Los
+                        precios pueden variar según la disponibilidad del proveedor al
                         momento de surtir.
                     </p>
                 </div>

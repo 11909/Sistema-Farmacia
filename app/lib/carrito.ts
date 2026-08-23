@@ -25,22 +25,31 @@ import {
 /**
  * Persistencia del carrito en Google Sheets.
  *
- * Modelo: cada cuenta tiene como máximo un carrito abierto en la pestaña
- * `Carrito`, identificado por `folio`. Las partidas de ese folio viven en
- * `Carrito_Producto`. La cuenta se referencia por correo, en `email_admin` o en
- * `email_sucursal` según el rol, que es como está montado el esquema de la hoja.
+ * Modelo: la pestaña `Carrito` guarda un pedido por fila, identificado por
+ * `folio`, y la columna `estado` dice en qué punto está. Cada cuenta tiene como
+ * máximo un folio `abierto` a la vez —el carrito que está armando— y tantos
+ * `confirmado` como pedidos haya hecho, que son el histórico y ya no se tocan.
+ * Las partidas de cada folio viven en `Carrito_Producto`. La cuenta se
+ * referencia por correo, en `email_admin` o en `email_sucursal` según el rol,
+ * que es como está montado el esquema de la hoja.
+ *
+ * Confirmar un pedido no borra nada: sella la fila como `confirmado` y con eso
+ * deja de ser el carrito abierto de la cuenta, así que la siguiente alta crea un
+ * folio nuevo. Sus partidas se quedan en `Carrito_Producto` como registro de lo
+ * que se pidió.
  *
  * Sobre la cuota: la API de Sheets permite 60 lecturas por minuto y por usuario.
  * Tanto leer como guardar traen todo lo que necesitan en un único `batchGet`,
  * porque una llamada por pestaña agota la cuota con muy poco uso.
  */
 
-// Carrito: A folio | B fecha | C hora | D precio_total | E email_sucursal | F email_admin
+// Carrito: A folio | B fecha | C hora | D precio_total | E email_sucursal
+//        | F email_admin | G estado
 const CARRITO = {
     pestana: "Carrito",
-    rango: "Carrito!A2:F",
-    ultimaColumna: "F",
-    columnas: 6,
+    rango: "Carrito!A2:G",
+    ultimaColumna: "G",
+    columnas: 7,
     col: {
         folio: 0,
         fecha: 1,
@@ -48,8 +57,25 @@ const CARRITO = {
         precioTotal: 3,
         emailSucursal: 4,
         emailAdmin: 5,
+        estado: 6,
     },
 } as const;
+
+/**
+ * Valores de la columna `estado`.
+ *
+ * Una celda vacía cuenta como `abierto`: las filas que ya existían antes de que
+ * la columna se añadiera son los carritos que las cuentas tenían a medias, y
+ * tratarlas como confirmadas las habría dado por pedidas.
+ */
+const ESTADO = { abierto: "abierto", confirmado: "confirmado" } as const;
+
+function estaConfirmada(filaCarrito: string[]): boolean {
+    return (
+        filaCarrito[CARRITO.col.estado].trim().toLowerCase() ===
+        ESTADO.confirmado
+    );
+}
 
 // Carrito_Producto: A folio | B codigo_barras | C id_proveedor | D cantidad_productos
 const PARTIDAS = {
@@ -125,21 +151,27 @@ async function leerEstadoHoja(): Promise<EstadoHoja> {
 }
 
 /**
- * Localiza la fila del carrito de una cuenta dentro de filas ya leídas.
+ * Localiza la fila del carrito **abierto** de una cuenta dentro de filas ya
+ * leídas.
  *
- * Devuelve también el número de fila real en la hoja, necesario para poder
- * actualizar la cabecera en su sitio.
+ * Los folios confirmados se saltan a propósito: son pedidos ya hechos, y si
+ * volvieran a contar como el carrito de la cuenta, el usuario acabaría editando
+ * el histórico en lugar de empezar un pedido nuevo.
+ *
+ * Devuelve también el número de fila real en la hoja y sus valores, necesarios
+ * para actualizar la cabecera en su sitio sin pisar las columnas que no tocan.
  */
 function localizarCarrito(
     filasCarrito: string[][],
     email: string,
-): { folio: string; fila: number } | null {
+): { folio: string; fila: number; valores: string[] } | null {
     const buscado = normalizarEmail(email);
 
     const indice = filasCarrito.findIndex(
         (f) =>
-            normalizarEmail(f[CARRITO.col.emailAdmin]) === buscado ||
-            normalizarEmail(f[CARRITO.col.emailSucursal]) === buscado,
+            !estaConfirmada(f) &&
+            (normalizarEmail(f[CARRITO.col.emailAdmin]) === buscado ||
+                normalizarEmail(f[CARRITO.col.emailSucursal]) === buscado),
     );
     if (indice === -1) return null;
 
@@ -147,6 +179,7 @@ function localizarCarrito(
         folio: filasCarrito[indice][CARRITO.col.folio].trim(),
         // +2: la fila 1 son encabezados y las hojas cuentan desde 1.
         fila: indice + 2,
+        valores: filasCarrito[indice],
     };
 }
 
@@ -365,6 +398,11 @@ async function aplicarGuardado(
     const { fecha, hora } = marcaDeTiempo();
     const existente = localizarCarrito(estado.filasCarrito, email);
 
+    // Sin partidas y sin carrito abierto no hay nada que guardar. Se sale antes
+    // de crear la fila: si no, cada visita a un carrito vacío dejaría un folio
+    // en la hoja sin una sola partida detrás.
+    if (!existente && filasNuevas.length === 0) return [];
+
     let folio: string;
 
     if (existente) {
@@ -386,6 +424,7 @@ async function aplicarGuardado(
         if (rol === "sucursal")
             fila[CARRITO.col.emailSucursal] = normalizarEmail(email);
         else fila[CARRITO.col.emailAdmin] = normalizarEmail(email);
+        fila[CARRITO.col.estado] = ESTADO.abierto;
 
         const rangoEscrito = await anexarFilas(CARRITO.rango, [fila]);
         if (primeraFilaDeRango(rangoEscrito) === null) {
@@ -415,4 +454,69 @@ async function aplicarGuardado(
     );
 
     return lineas;
+}
+
+/** Pedido tal como quedó registrado al confirmarlo. */
+export type PedidoConfirmado = {
+    folio: string;
+    /** Fecha y hora locales en las que se confirmó, ya escritas en la hoja. */
+    fecha: string;
+    hora: string;
+    lineas: LineaCarrito[];
+    /** Importe del pedido con los precios del catálogo en ese momento. */
+    total: number;
+};
+
+/**
+ * Cierra el carrito abierto de una cuenta y lo deja como pedido en la hoja.
+ *
+ * Sella la fila con `estado = confirmado` y con el sello de tiempo y el importe
+ * del momento. A partir de ahí `localizarCarrito` deja de verla, así que la
+ * cuenta se queda sin carrito abierto y el siguiente producto que agregue crea
+ * un folio nuevo: es lo que permite tener varios pedidos por cuenta.
+ *
+ * Las partidas no se mueven ni se borran. Se quedan colgadas del folio en
+ * `Carrito_Producto` y son el registro de qué se pidió.
+ *
+ * Devuelve `null` si la cuenta no tiene carrito abierto o si el que tiene se ha
+ * quedado sin partidas válidas: un pedido vacío no se confirma.
+ *
+ * Va en la misma cola que los guardados. Si no fuera indivisible, un guardado
+ * con el temporizador de la interfaz a medio vencer podría escribir partidas
+ * sobre un folio que se acaba de confirmar.
+ */
+export async function confirmarPedido(
+    email: string,
+): Promise<PedidoConfirmado | null> {
+    return enCola(async () => {
+        const estado = await leerEstadoHoja();
+
+        const carrito = localizarCarrito(estado.filasCarrito, email);
+        if (!carrito) return null;
+
+        const lineas = lineasDelFolio(estado, carrito.folio);
+        if (lineas.length === 0) return null;
+
+        const total = lineas.reduce(
+            (suma, l) => suma + l.precioUnitario * l.cantidad,
+            0,
+        );
+        const { fecha, hora } = marcaDeTiempo();
+
+        // Se reescribe la fila completa a partir de la que ya estaba, para que
+        // las columnas de correo conserven su valor: son las que dicen de quién
+        // es el pedido y aquí no se recalculan.
+        const fila = [...carrito.valores];
+        fila[CARRITO.col.fecha] = fecha;
+        fila[CARRITO.col.hora] = hora;
+        fila[CARRITO.col.precioTotal] = total.toFixed(2);
+        fila[CARRITO.col.estado] = ESTADO.confirmado;
+
+        await escribirFilas(
+            `${CARRITO.pestana}!A${carrito.fila}:${CARRITO.ultimaColumna}${carrito.fila}`,
+            [fila],
+        );
+
+        return { folio: carrito.folio, fecha, hora, lineas, total };
+    });
 }
