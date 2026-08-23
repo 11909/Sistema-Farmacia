@@ -1,7 +1,10 @@
 ﻿import type { CSSProperties } from "react";
 import { claveProveedor } from "../../lib/nombresProveedor";
 import type { PaletaBurbujas } from "./BurbujasPrecio";
-import type { PaletasProveedor } from "../../lib/proveedores";
+import type {
+    PaletasProveedor,
+    ParadasSeleccion,
+} from "../../lib/proveedores";
 
 /**
  * Identidad visual de cada proveedor.
@@ -154,11 +157,14 @@ const ANGULO_FONDO = "40deg";
 /**
  * Fondo con el que se marca el proveedor seleccionado.
  *
- * Son las dos paradas de la columna `bubble_background` de
- * `Lista_Proveedores`: el mismo degradado sobre el que se mueven las burbujas
- * del banner, aquí en plano. En una fila de ~40 px el efecto completo se lee
- * como ruido, y lo que hace falta es que el color del proveedor diga cuál está
- * elegido.
+ * Son las dos paradas de la columna `selector_color` de `Lista_Proveedores`: una
+ * versión más clara de `bubble_background`, porque la fila del selector mide
+ * ~40 px y el tinte del banner resulta demasiado cargado a ese tamaño.
+ *
+ * Si la hoja no trae `selector_color` para ese proveedor, cae a
+ * `bubble_background`, que es el degradado del banner y siempre está. Es una
+ * degradación sensata: la fila se ve más cargada de lo previsto, pero se sigue
+ * leyendo como seleccionada y el color de texto de `banner` sigue contrastando.
  *
  * Va como `style` en lugar de una clase de Tailwind porque el valor sale de la
  * hoja: el compilador no puede generar una clase para un color que no está
@@ -166,12 +172,17 @@ const ANGULO_FONDO = "40deg";
  * `proveedores.ts`, que es lo que evita que una celda cuele algo raro en el
  * atributo.
  *
- * Devuelve `{}` si la paleta no trae las dos paradas, y entonces la fila se
- * queda sin fondo en lugar de con un degradado a medias.
+ * Devuelve `{}` solo si no hay ninguno de los dos, y entonces la fila se queda
+ * sin fondo en lugar de con un degradado a medias.
  */
-export function fondoDeSeleccion(colores: ColoresProveedor): CSSProperties {
-    const fondo1 = colores.burbujas["--bp-fondo1"];
-    const fondo2 = colores.burbujas["--bp-fondo2"];
+export function fondoDeSeleccion(
+    colores: ColoresProveedor,
+    paradas: ParadasSeleccion | undefined,
+): CSSProperties {
+    const [fondo1, fondo2] = paradas ?? [
+        colores.burbujas["--bp-fondo1"],
+        colores.burbujas["--bp-fondo2"],
+    ];
     if (!fondo1 || !fondo2) return {};
 
     return {

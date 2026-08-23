@@ -2,13 +2,17 @@
 import Link from "next/link";
 import BotonCopiarCodigo from "../ui/grid_productos/BotonCopiarCodigo";
 import BurbujasPrecio from "../ui/grid_productos/BurbujasPrecio";
+import FiltroProveedores from "../ui/grid_productos/FiltroProveedores";
 import SelectorProveedor from "../ui/grid_productos/SelectorProveedor";
 import {
     coloresDe,
     formatoPrecio,
     precioCompacto,
 } from "../ui/grid_productos/coloresProveedor";
-import type { PaletasProveedor } from "../lib/proveedores";
+import type {
+    FondosSeleccion,
+    PaletasProveedor,
+} from "../lib/proveedores";
 import {
     sinPreciosOfertas,
     type OfertaVisible,
@@ -21,6 +25,7 @@ import {
     normalizarTexto,
     obtenerCatalogo,
     ofertasOrdenadas,
+    ofreceProveedor,
     type Medicamento,
 } from "../lib/catalogo";
 
@@ -55,11 +60,14 @@ function IconoAhorro() {
 function TarjetaProducto({
     medicamento,
     paletas,
+    fondos,
     mostrarPrecios,
 }: {
     medicamento: Medicamento;
     /** Colores de burbujas de `Lista_Proveedores`, para teñir el banner. */
     paletas: PaletasProveedor;
+    /** Paradas de `selector_color`, para marcar al proveedor elegido. */
+    fondos: FondosSeleccion;
     /**
      * Si se pintan los importes. Con `false` la tarjeta enseña el ranking de
      * proveedores y el ganador, pero ningún precio.
@@ -204,6 +212,7 @@ function TarjetaProducto({
                 nombre={medicamento.nombre}
                 ofertas={mostrarPrecios ? ofertas : sinPreciosOfertas(ofertas)}
                 paletas={paletas}
+                fondos={fondos}
                 mostrarPrecios={mostrarPrecios}
             />
         </article>
@@ -238,10 +247,28 @@ function ventanaDePaginas(actual: number, total: number): (number | null)[] {
     return conHuecos;
 }
 
-/** Enlace de paginación que conserva el término de búsqueda. */
-function enlacePagina(pagina: number, q: string): string {
+/**
+ * URL del catálogo con el estado que se le pase.
+ *
+ * Único sitio donde se arma la query, para que ningún enlace se deje por el
+ * camino un parámetro de otro: la paginación tiene que conservar el filtro y la
+ * búsqueda, y el filtro tiene que conservar la búsqueda.
+ *
+ * Los valores por defecto (sin búsqueda, sin filtro, página 1) se omiten, así la
+ * portada del catálogo es `/grid_productos` a secas.
+ */
+function enlaceCatalogo({
+    q = "",
+    prov = null,
+    pagina = 1,
+}: {
+    q?: string;
+    prov?: string | null;
+    pagina?: number;
+}): string {
     const params = new URLSearchParams();
     if (q) params.set("q", q);
+    if (prov) params.set("prov", prov);
     if (pagina > 1) params.set("p", String(pagina));
 
     const cadena = params.toString();
@@ -251,7 +278,7 @@ function enlacePagina(pagina: number, q: string): string {
 export default async function GridProductos({
     searchParams,
 }: {
-    searchParams: Promise<{ q?: string; p?: string }>;
+    searchParams: Promise<{ q?: string; p?: string; prov?: string }>;
 }) {
     const [parametros, catalogo, sesion] = await Promise.all([
         searchParams,
@@ -269,12 +296,38 @@ export default async function GridProductos({
 
     const q = (parametros.q ?? "").trim();
 
-    // El filtro compara contra `textoBusqueda`, que ya viene normalizado, así
+    // La búsqueda compara contra `textoBusqueda`, que ya viene normalizado, así
     // que sirve tanto para el nombre como para el código de barras.
     const termino = normalizarTexto(q);
-    const encontrados = termino
+    const buscados = termino
         ? catalogo.medicamentos.filter((m) => m.textoBusqueda.includes(termino))
         : catalogo.medicamentos;
+
+    // Proveedor filtrado. Llega por URL como `id_proveedor`, así que puede venir
+    // con cualquier cosa: si no está en `Lista_Proveedores` se ignora el filtro
+    // en lugar de devolver una página vacía sin explicación.
+    const provPedido = (parametros.prov ?? "").trim();
+    const nombreFiltrado =
+        catalogo.directorio.nombrePorId.get(provPedido) ?? null;
+    const prov = nombreFiltrado ? provPedido : null;
+
+    // Cuántos productos ofrece cada proveedor de lo ya encontrado por la
+    // búsqueda. Se cuenta sobre `buscados` y no sobre el catálogo entero para que
+    // el número de la pastilla diga lo que se va a ver al pulsarla.
+    const conteos = new Map<string, number>();
+    for (const proveedor of catalogo.directorio.lista) {
+        conteos.set(
+            proveedor.id,
+            buscados.reduce(
+                (total, m) => (ofreceProveedor(m, proveedor.nombre) ? total + 1 : total),
+                0,
+            ),
+        );
+    }
+
+    const encontrados = nombreFiltrado
+        ? buscados.filter((m) => ofreceProveedor(m, nombreFiltrado))
+        : buscados;
 
     const totalPaginas = Math.max(Math.ceil(encontrados.length / POR_PAGINA), 1);
 
@@ -293,6 +346,17 @@ export default async function GridProductos({
         // compartidos con las rutas hijas del segmento y con `loading.tsx`.
         <main>
             <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+                {/* Cambiar de proveedor vuelve a la página 1: el conjunto de
+                    resultados es otro, y la página 12 del filtro anterior no
+                    significa nada en el nuevo. La búsqueda sí se conserva. */}
+                <FiltroProveedores
+                    proveedores={catalogo.directorio.lista}
+                    activo={prov}
+                    conteos={conteos}
+                    paletas={catalogo.paletas}
+                    enlaceDe={(id) => enlaceCatalogo({ q, prov: id })}
+                />
+
                 <p className="mb-4 text-sm text-gray-500">
                     {encontrados.length > 0 ? (
                         <>
@@ -312,11 +376,38 @@ export default async function GridProductos({
                                     <span className="font-semibold text-gray-700">“{q}”</span>
                                 </>
                             )}
+                            {nombreFiltrado && (
+                                <>
+                                    {" "}
+                                    de{" "}
+                                    <span className="font-semibold text-gray-700">
+                                        {nombreFiltrado}
+                                    </span>
+                                </>
+                            )}
                         </>
                     ) : (
                         <>
-                            Ningún producto coincide con{" "}
-                            <span className="font-semibold text-gray-700">“{q}”</span>.{" "}
+                            Ningún producto{" "}
+                            {nombreFiltrado && (
+                                <>
+                                    de{" "}
+                                    <span className="font-semibold text-gray-700">
+                                        {nombreFiltrado}
+                                    </span>{" "}
+                                </>
+                            )}
+                            {q ? (
+                                <>
+                                    coincide con{" "}
+                                    <span className="font-semibold text-gray-700">
+                                        “{q}”
+                                    </span>
+                                </>
+                            ) : (
+                                "está registrado en la hoja"
+                            )}
+                            .{" "}
                             <Link
                                 href="/grid_productos"
                                 className="font-semibold text-blue-600 hover:underline"
@@ -340,6 +431,7 @@ export default async function GridProductos({
                             key={med.codigoBarras}
                             medicamento={med}
                             paletas={catalogo.paletas}
+                            fondos={catalogo.fondosSeleccion}
                             mostrarPrecios={mostrarPrecios}
                         />
                     ))}
@@ -354,7 +446,7 @@ export default async function GridProductos({
                     >
                         {pagina > 1 ? (
                             <Link
-                                href={enlacePagina(pagina - 1, q)}
+                                href={enlaceCatalogo({ q, prov, pagina: pagina - 1 })}
                                 rel="prev"
                                 className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
@@ -381,7 +473,7 @@ export default async function GridProductos({
                             ) : (
                                 <Link
                                     key={n}
-                                    href={enlacePagina(n, q)}
+                                    href={enlaceCatalogo({ q, prov, pagina: n })}
                                     aria-current={n === pagina ? "page" : undefined}
                                     aria-label={`Página ${n}`}
                                     className={`flex h-10 min-w-10 items-center justify-center rounded-lg px-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${n === pagina
@@ -396,7 +488,7 @@ export default async function GridProductos({
 
                         {pagina < totalPaginas ? (
                             <Link
-                                href={enlacePagina(pagina + 1, q)}
+                                href={enlaceCatalogo({ q, prov, pagina: pagina + 1 })}
                                 rel="next"
                                 className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >

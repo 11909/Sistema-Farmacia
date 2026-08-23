@@ -7,7 +7,11 @@ import {
     fondoDeSeleccion,
     formatoPrecio,
 } from "./coloresProveedor";
-import type { PaletasProveedor } from "../../lib/proveedores";
+import type {
+    FondosSeleccion,
+    PaletasProveedor,
+} from "../../lib/proveedores";
+import { claveProveedor } from "../../lib/nombresProveedor";
 import type { OfertaVisible } from "../../lib/tiposCatalogo";
 
 /**
@@ -19,7 +23,7 @@ import type { OfertaVisible } from "../../lib/tiposCatalogo";
  * proveedor (porque el barato tarda, porque ya se le hace un pedido a esa casa,
  * o por lo que sea), y el botón agrega el que esté seleccionado.
  *
- * La fila elegida se marca con el `bubble_background` de su proveedor, tal como
+ * La fila elegida se marca con el `selector_color` de su proveedor, tal como
  * está en `Lista_Proveedores` (ver `fondoDeSeleccion`). Es color plano y no el
  * efecto de burbujas del banner: en una tira de ~40 px el efecto se lee como
  * ruido, y además serían 24 filtros SVG más por página sin aportar nada.
@@ -40,11 +44,13 @@ type SelectorProveedorProps = {
      */
     ofertas: OfertaVisible[];
     /**
-     * Paletas de `Lista_Proveedores`. De aquí sale el fondo de la fila elegida.
-     * Es el mismo objeto para las 24 tarjetas de la página, así que el payload
-     * lo serializa una sola vez.
+     * Paletas de `Lista_Proveedores`. De aquí sale el color de texto e insignia
+     * de cada proveedor. Es el mismo objeto para las 24 tarjetas de la página,
+     * así que el payload lo serializa una sola vez.
      */
     paletas: PaletasProveedor;
+    /** Paradas de `selector_color`: el fondo de la fila elegida. */
+    fondos: FondosSeleccion;
     /** Si se pintan los importes. Con `false` las ofertas llegan sin precio. */
     mostrarPrecios: boolean;
 };
@@ -54,6 +60,7 @@ export default function SelectorProveedor({
     nombre,
     ofertas,
     paletas,
+    fondos,
     mostrarPrecios,
 }: SelectorProveedorProps) {
     const disponibles = ofertas.filter((o) => o.disponible);
@@ -101,12 +108,19 @@ export default function SelectorProveedor({
                             <label
                                 key={oferta.proveedor}
                                 // El fondo de la fila elegida es el
-                                // `bubble_background` del proveedor, leído de la
+                                // `selector_color` del proveedor, leído de la
                                 // hoja. `colores.banner` va con él porque es el
-                                // color de texto pensado para ese fondo: sobre el
-                                // de Farmacenter, que es casi negro, el texto
+                                // color de texto pensado para esa gama: sobre la
+                                // de Farmacenter, que es gris oscuro, el texto
                                 // tiene que ser blanco.
-                                style={elegido ? fondoDeSeleccion(colores) : undefined}
+                                style={
+                                    elegido
+                                        ? fondoDeSeleccion(
+                                            colores,
+                                            fondos[claveProveedor(oferta.proveedor)],
+                                        )
+                                        : undefined
+                                }
                                 // `has-[:focus-visible]` pinta el anillo de foco
                                 // en la fila: el radio real está oculto y su
                                 // propio anillo no se vería.
