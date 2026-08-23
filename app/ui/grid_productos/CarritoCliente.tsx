@@ -145,7 +145,7 @@ function ChipCristal({
  * Etiqueta con el nombre del proveedor, sobre cristal.
  *
  * El texto va en `currentColor`: hereda el color del grupo y contrasta tanto
- * sobre las paletas claras (texto oscuro) como sobre la de Farmater (blanco),
+ * sobre las paletas claras (texto oscuro) como sobre la de Farmacenter (blanco),
  * sin necesitar un caso por proveedor.
  */
 function EtiquetaProveedor({
@@ -718,7 +718,7 @@ export default function CarritoCliente({
                                 proveedor. El texto usa `colores.banner` y
                                 opacidades de `currentColor`, como en el banner:
                                 así contrasta tanto sobre las paletas claras como
-                                sobre la oscura de Farmater. */}
+                                sobre la oscura de Farmacenter. */}
                             <header
                                 className={`relative isolate flex flex-wrap items-center gap-x-3 gap-y-1.5 overflow-hidden px-5 py-4 sm:px-7 ${colores.banner}`}
                             >
@@ -827,7 +827,7 @@ export default function CarritoCliente({
                         que teñirlo con el color de uno de ellos daría a entender
                         que el total es solo suyo. Texto oscuro fijo, no
                         `colores.banner`: sobre este fondo claro el blanco de
-                        Farmater desaparecería. */}
+                        Farmacenter desaparecería. */}
                     <div className="relative isolate mt-4 overflow-hidden rounded-2xl px-5 py-4 text-emerald-950">
                         <div className="absolute inset-0 -z-10">
                             <BurbujasPrecio idFiltro="goo-carrito-total" />

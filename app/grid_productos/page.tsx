@@ -1,14 +1,18 @@
 // Comparador de precios por proveedor
 import Link from "next/link";
 import BotonCopiarCodigo from "../ui/grid_productos/BotonCopiarCodigo";
-import BotonAgregarCarrito from "../ui/grid_productos/BotonAgregarCarrito";
 import BurbujasPrecio from "../ui/grid_productos/BurbujasPrecio";
+import SelectorProveedor from "../ui/grid_productos/SelectorProveedor";
 import {
     coloresDe,
     formatoPrecio,
     precioCompacto,
 } from "../ui/grid_productos/coloresProveedor";
 import type { PaletasProveedor } from "../lib/proveedores";
+import {
+    sinPreciosOfertas,
+    type OfertaVisible,
+} from "../lib/tiposCatalogo";
 import { requerirSesion } from "../lib/sesion";
 import { puedeVerPrecios } from "../lib/permisos";
 // El catálogo vive en `app/lib/catalogo.ts` porque el carrito también lo
@@ -18,7 +22,6 @@ import {
     obtenerCatalogo,
     ofertasOrdenadas,
     type Medicamento,
-    type PrecioProveedor,
 } from "../lib/catalogo";
 
 /**
@@ -49,102 +52,6 @@ function IconoAhorro() {
     );
 }
 
-/**
- * Ranking de proveedores ordenado de más barato a más caro. Los agotados se
- * mandan al final y se muestran atenuados, ya que no compiten por el precio.
- */
-function RankingProveedores({
-    ordenados,
-    mostrarPrecios,
-}: {
-    ordenados: PrecioProveedor[];
-    /** Con `false` se ve el orden de proveedores pero no los importes. */
-    mostrarPrecios: boolean;
-}) {
-    const ganador = ordenados.find((p) => p.disponible);
-
-    // La mayoría de los productos de la hoja solo tiene un proveedor, así que
-    // conviene decirlo en lugar de pintar una comparativa de un solo renglón
-    // como si fuera el resultado de comparar.
-    if (ordenados.length === 0) {
-        return (
-            <p className="mt-4 rounded-xl bg-gray-50 px-3 py-2.5 text-[13px] text-gray-500">
-                Sin precios registrados en la hoja.
-            </p>
-        );
-    }
-
-    return (
-        <ul className="mt-4 flex flex-col gap-1">
-            {ordenados.map((p, idx) => {
-                // Sin paletas de la hoja: el ranking solo usa clases de
-                // Tailwind (`fila`, `insignia`, `guion`), no las burbujas.
-                const colores = coloresDe(p.proveedor);
-                const esGanador = p === ganador;
-
-                return (
-                    <li
-                        key={p.proveedor}
-                        className={`flex items-center gap-2.5 rounded-xl px-2.5 py-2 ${esGanador ? colores.fila : ""
-                            }`}
-                    >
-                        {esGanador ? (
-                            <span
-                                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-mono text-xs font-bold ${colores.insignia}`}
-                            >
-                                {idx + 1}
-                            </span>
-                        ) : (
-                            <span
-                                className={`flex h-6 w-6 shrink-0 items-center justify-center font-mono text-sm ${p.disponible ? "text-gray-400" : "text-gray-300"
-                                    }`}
-                            >
-                                {idx + 1}
-                            </span>
-                        )}
-
-                        <span
-                            className={`truncate text-sm ${esGanador
-                                ? "font-bold text-gray-900"
-                                : p.disponible
-                                    ? "font-medium text-gray-600"
-                                    : "font-medium text-gray-300"
-                                }`}
-                        >
-                            {p.proveedor}
-                        </span>
-
-                        <span
-                            aria-hidden="true"
-                            className={`min-w-4 flex-1 border-t border-dashed ${esGanador
-                                ? colores.guion
-                                : p.disponible
-                                    ? "border-gray-300"
-                                    : "border-gray-200"
-                                }`}
-                        />
-
-                        {!p.disponible ? (
-                            <span className="shrink-0 text-[13px] font-semibold text-rose-400">
-                                Agotado
-                            </span>
-                        ) : (
-                            mostrarPrecios && (
-                                <span
-                                    className={`shrink-0 font-mono text-sm tabular-nums ${esGanador ? "font-bold text-gray-900" : "font-semibold text-gray-700"
-                                        }`}
-                                >
-                                    {formatoPrecio(p.precio)}
-                                </span>
-                            )
-                        )}
-                    </li>
-                );
-            })}
-        </ul>
-    );
-}
-
 function TarjetaProducto({
     medicamento,
     paletas,
@@ -157,8 +64,10 @@ function TarjetaProducto({
      * Si se pintan los importes. Con `false` la tarjeta enseña el ranking de
      * proveedores y el ganador, pero ningún precio.
      *
-     * Como es un componente de servidor, lo que no se pinta aquí tampoco llega
-     * al navegador: no hay precio escondido en el HTML ni en el payload.
+     * Lo que la tarjeta pinta por su cuenta es de servidor, así que con `false`
+     * no llega al navegador ni en el HTML ni en el payload. Las ofertas son el
+     * caso aparte: van como prop al selector, que es de cliente, y ahí sí
+     * viajarían, así que se les quita el precio antes (ver `ofertas`).
      */
     mostrarPrecios: boolean;
 }) {
@@ -180,6 +89,20 @@ function TarjetaProducto({
             : 0;
 
     const colores = coloresDe(ganador?.proveedor, paletas);
+
+    // Lo que se le entrega al selector, que es de cliente. A una cuenta de
+    // sucursal se le quitan los importes aquí, antes de que las ofertas entren
+    // en el payload: no basta con no pintarlos, porque lo que va como prop a un
+    // componente de cliente viaja al navegador.
+    const ofertas: OfertaVisible[] = ordenados.map((p) => {
+        const oferta: OfertaVisible = {
+            proveedor: p.proveedor,
+            precio: p.precio,
+            disponible: p.disponible,
+        };
+        if (p.unidad !== undefined) oferta.unidad = p.unidad;
+        return oferta;
+    });
 
     return (
         <article className="flex flex-col rounded-3xl bg-white p-7 shadow-sm ring-1 ring-gray-200/80 transition duration-200 hover:-translate-y-1 hover:shadow-xl hover:shadow-gray-900/5 hover:ring-gray-300">
@@ -271,19 +194,17 @@ function TarjetaProducto({
                 </div>
             )}
 
-            {/* Ranking completo. Es lo que ve una sucursal: el orden de
-                proveedores de más barato a más caro, sin los importes. */}
-            <RankingProveedores
-                ordenados={ordenados}
-                mostrarPrecios={mostrarPrecios}
-            />
-
-            {/* El proveedor que se agrega es el ganador del comparador: el más
-                barato entre los disponibles. */}
-            <BotonAgregarCarrito
+            {/* Ranking completo y elegible: el orden de proveedores de más
+                barato a más caro, con el ganador marcado por defecto y la fila
+                elegida teñida con el `bubble_background` de su proveedor. El
+                botón agrega el proveedor que quede seleccionado, no forzosamente
+                el más barato. */}
+            <SelectorProveedor
                 codigoBarras={medicamento.codigoBarras}
-                proveedor={ganador?.proveedor ?? null}
                 nombre={medicamento.nombre}
+                ofertas={mostrarPrecios ? ofertas : sinPreciosOfertas(ofertas)}
+                paletas={paletas}
+                mostrarPrecios={mostrarPrecios}
             />
         </article>
     );

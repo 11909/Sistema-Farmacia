@@ -1,4 +1,4 @@
-import { claveProveedor, nombreEnCodigo } from "./nombresProveedor";
+import { claveProveedor } from "./nombresProveedor";
 // Solo el tipo: `import type` se borra al compilar, así que este módulo no
 // arrastra el componente (ni su SCSS) al servidor.
 import type { PaletaBurbujas } from "../ui/grid_productos/BurbujasPrecio";
@@ -155,17 +155,15 @@ export function idDeProveedor(
 }
 
 /**
- * Traduce un `id_proveedor` al nombre que espera la interfaz.
+ * Traduce un `id_proveedor` al nombre de proveedor.
  *
- * La interfaz colorea por nombre de proveedor (`coloresProveedor.ts`), y ahí la
- * entrada es "Farmater". Se invierte el alias para que el color siga saliendo.
+ * Devuelve el nombre tal como está escrito en `Lista_Proveedores`, que es la
+ * única fuente: la interfaz colorea por ese mismo nombre
+ * (`coloresProveedor.ts`).
  */
 export function nombreDeProveedor(
     directorio: DirectorioProveedores,
     id: string,
 ): string | null {
-    const nombreEnHoja = directorio.nombrePorId.get(id.trim());
-    if (!nombreEnHoja) return null;
-
-    return nombreEnCodigo(nombreEnHoja);
+    return directorio.nombrePorId.get(id.trim()) ?? null;
 }
