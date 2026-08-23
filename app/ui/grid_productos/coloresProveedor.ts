@@ -1,6 +1,10 @@
-import type { PaletaBurbujas } from "./BurbujasPrecio";
+﻿import type { CSSProperties } from "react";
 import { claveProveedor } from "../../lib/nombresProveedor";
-import type { PaletasProveedor } from "../../lib/proveedores";
+import type { PaletaBurbujas } from "./BurbujasPrecio";
+import type {
+    PaletasProveedor,
+    ParadasSeleccion,
+} from "../../lib/proveedores";
 
 /**
  * Identidad visual de cada proveedor.
@@ -11,7 +15,7 @@ import type { PaletasProveedor } from "../../lib/proveedores";
  * mismo en los dos sitios para que el usuario reconozca de un vistazo quién
  * gana la comparación y de quién es cada partida del pedido.
  *
- * City -> azul, Ofasa -> naranja, Farmater -> negro, Tenorio -> amarillo.
+ * City -> azul, Ofasa -> naranja, Farmacenter -> negro, Tenorio -> amarillo.
  *
  * La excepción es el total del resumen del carrito: ahí el pedido es de varios
  * proveedores a la vez, así que no usa ninguna de estas paletas y deja a
@@ -29,19 +33,15 @@ export type ColoresProveedor = {
      * tienen que existir en el código para que el compilador las genere.
      */
     burbujas: PaletaBurbujas;
-    /** Insignia circular del primer lugar / etiqueta del proveedor. */
+    /** Insignia circular del puesto en el ranking / etiqueta del proveedor. */
     insignia: string;
-    /** Fondo suave de la fila ganadora del ranking o del grupo del carrito. */
-    fila: string;
-    /** Guion separador de la fila ganadora. */
-    guion: string;
     /**
      * Relleno y anillo del cristal de los chips que van encima de las burbujas
      * (ver `ChipCristal` en `CarritoCliente`).
      *
      * El tinte sigue la luminosidad de la paleta, no el gusto: un velo blanco
-     * sobre las burbujas oscuras de Farmater las aclararía y el texto blanco del
-     * grupo perdería contraste, así que ahí el cristal es ahumado.
+     * sobre las burbujas oscuras de Farmacenter las aclararía y el texto blanco
+     * del grupo perdería contraste, así que ahí el cristal es ahumado.
      */
     cristal: string;
 };
@@ -58,11 +58,9 @@ export const COLOR_PROVEEDOR: Record<string, ColoresProveedor> = {
             "--bp-color4": "59, 130, 246",
         },
         insignia: "bg-blue-600 text-white",
-        fila: "bg-blue-50",
-        guion: "border-blue-300",
         cristal: "bg-white/40 ring-white/60",
     },
-    Farmater: {
+    Farmacenter: {
         // Único caso con texto claro. Tras el umbral del filtro las manchas
         // quedan opacas, así que ninguna pasa de neutral-500: por encima de ese
         // tono el texto blanco del banner dejaría de contrastar.
@@ -75,9 +73,11 @@ export const COLOR_PROVEEDOR: Record<string, ColoresProveedor> = {
             "--bp-color3": "64, 64, 64",
             "--bp-color4": "96, 96, 96",
         },
-        insignia: "bg-neutral-800 text-white",
-        fila: "bg-neutral-100",
-        guion: "border-neutral-400",
+        // neutral-600 y no 800: el 800 es exactamente el mismo tono que
+        // `--bp-fondo1`, así que sobre el fondo de la fila seleccionada del
+        // selector la insignia se volvería invisible. Sobre blanco, que es donde
+        // la usa el desglose del carrito, los dos tonos funcionan igual.
+        insignia: "bg-neutral-600 text-white",
         // Cristal ahumado: aquí el texto del grupo es blanco.
         cristal: "bg-black/25 ring-white/25",
     },
@@ -92,8 +92,6 @@ export const COLOR_PROVEEDOR: Record<string, ColoresProveedor> = {
             "--bp-color4": "251, 146, 60",
         },
         insignia: "bg-orange-500 text-white",
-        fila: "bg-orange-50",
-        guion: "border-orange-300",
         cristal: "bg-white/45 ring-white/70",
     },
     Tenorio: {
@@ -107,8 +105,6 @@ export const COLOR_PROVEEDOR: Record<string, ColoresProveedor> = {
             "--bp-color4": "251, 191, 36",
         },
         insignia: "bg-amber-400 text-amber-950",
-        fila: "bg-amber-50",
-        guion: "border-amber-400",
         cristal: "bg-white/45 ring-white/70",
     },
 };
@@ -125,8 +121,6 @@ export const COLOR_NEUTRO: ColoresProveedor = {
         "--bp-color4": "107, 114, 128",
     },
     insignia: "bg-gray-500 text-white",
-    fila: "bg-gray-50",
-    guion: "border-gray-300",
     cristal: "bg-white/45 ring-white/60",
 };
 
@@ -153,6 +147,49 @@ export function coloresDe(
     return deLaHoja ? { ...base, burbujas: deLaHoja } : base;
 }
 
+/**
+ * Ángulo del degradado de `bubble_background`, el mismo que usa la capa de
+ * burbujas (ver `BurbujasPrecio.module.scss`), para que el fondo del proveedor
+ * se vea igual lo pinte quien lo pinte.
+ */
+const ANGULO_FONDO = "40deg";
+
+/**
+ * Fondo con el que se marca el proveedor seleccionado.
+ *
+ * Son las dos paradas de la columna `selector_color` de `Lista_Proveedores`: una
+ * versión más clara de `bubble_background`, porque la fila del selector mide
+ * ~40 px y el tinte del banner resulta demasiado cargado a ese tamaño.
+ *
+ * Si la hoja no trae `selector_color` para ese proveedor, cae a
+ * `bubble_background`, que es el degradado del banner y siempre está. Es una
+ * degradación sensata: la fila se ve más cargada de lo previsto, pero se sigue
+ * leyendo como seleccionada y el color de texto de `banner` sigue contrastando.
+ *
+ * Va como `style` en lugar de una clase de Tailwind porque el valor sale de la
+ * hoja: el compilador no puede generar una clase para un color que no está
+ * escrito en el código. Los valores ya vienen filtrados por `COLOR_VALIDO` en
+ * `proveedores.ts`, que es lo que evita que una celda cuele algo raro en el
+ * atributo.
+ *
+ * Devuelve `{}` solo si no hay ninguno de los dos, y entonces la fila se queda
+ * sin fondo en lugar de con un degradado a medias.
+ */
+export function fondoDeSeleccion(
+    colores: ColoresProveedor,
+    paradas: ParadasSeleccion | undefined,
+): CSSProperties {
+    const [fondo1, fondo2] = paradas ?? [
+        colores.burbujas["--bp-fondo1"],
+        colores.burbujas["--bp-fondo2"],
+    ];
+    if (!fondo1 || !fondo2) return {};
+
+    return {
+        backgroundImage: `linear-gradient(${ANGULO_FONDO}, ${fondo1}, ${fondo2})`,
+    };
+}
+
 /** Precio con dos decimales: $1234.50 */
 export function formatoPrecio(valor: number) {
     return `$${valor.toFixed(2)}`;
@@ -162,3 +199,5 @@ export function formatoPrecio(valor: number) {
 export function precioCompacto(valor: number) {
     return `$${Math.round(valor)}`;
 }
+
+

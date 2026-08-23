@@ -309,10 +309,11 @@ export async function guardarCarrito(
 }
 
 /**
- * Suma una pieza de un producto al carrito de la cuenta.
+ * Suma piezas de un producto al carrito de la cuenta.
  *
  * Si el producto ya está con el mismo proveedor se incrementa la cantidad en
- * lugar de duplicar la partida.
+ * lugar de duplicar la partida. El total se acota luego a las existencias del
+ * proveedor, en `reconstruirLinea`.
  *
  * Lee y escribe dentro de la misma tarea encolada: si no fuera indivisible, dos
  * clics rápidos en "Agregar al carrito" leerían el mismo estado y una de las dos
@@ -323,6 +324,8 @@ export async function agregarAlCarrito(
     rol: Rol,
     codigoBarras: string,
     proveedor: string,
+    /** Piezas a sumar. Ya saneada por quien llama. */
+    cantidad: number,
 ): Promise<LineaCarrito[]> {
     return enCola(async () => {
         const estado = await leerEstadoHoja();
@@ -345,8 +348,8 @@ export async function agregarAlCarrito(
                 p.proveedor.toLowerCase() === prov.toLowerCase(),
         );
 
-        if (existente) existente.cantidad += 1;
-        else partidas.push({ codigoBarras: codigo, proveedor: prov, cantidad: 1 });
+        if (existente) existente.cantidad += cantidad;
+        else partidas.push({ codigoBarras: codigo, proveedor: prov, cantidad });
 
         return aplicarGuardado(estado, email, rol, partidas);
     });

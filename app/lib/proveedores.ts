@@ -1,22 +1,35 @@
-import { claveProveedor, nombreEnCodigo } from "./nombresProveedor";
+import { claveProveedor } from "./nombresProveedor";
 // Solo el tipo: `import type` se borra al compilar, así que este módulo no
 // arrastra el componente (ni su SCSS) al servidor.
 import type { PaletaBurbujas } from "../ui/grid_productos/BurbujasPrecio";
 
 /**
  * Pestaña `Lista_Proveedores`:
- * A id_proveedor | B nombre_proveedor | C bubble_color | D bubble_background.
+ * A id_proveedor | B nombre_proveedor | C bubble_color | D bubble_background
+ * | E selector_color.
  *
  * Es el catálogo de proveedores de la hoja, y la única fuente de `id_proveedor`,
  * que es la clave con la que `Carrito_Producto` referencia al proveedor de cada
- * partida. `bubble_color` y `bubble_background` son la identidad visual del
- * proveedor: las cuatro manchas del efecto de burbujas y las dos paradas de su
- * degradado de fondo.
+ * partida.
+ *
+ * Las tres columnas de color son la identidad visual del proveedor:
+ * `bubble_color` son las cuatro manchas del efecto de burbujas,
+ * `bubble_background` las dos paradas del degradado sobre el que se mueven, y
+ * `selector_color` las dos paradas con las que el selector de la tarjeta marca
+ * al proveedor elegido. Esta última es una versión más clara de
+ * `bubble_background`: la fila del selector mide ~40 px y el tinte del banner
+ * resulta demasiado cargado a ese tamaño.
  */
-export const RANGO_PROVEEDORES = "Lista_Proveedores!A2:D";
-export const COLUMNAS_PROVEEDORES = 4;
+export const RANGO_PROVEEDORES = "Lista_Proveedores!A2:E";
+export const COLUMNAS_PROVEEDORES = 5;
 
-const COL = { id: 0, nombre: 1, bubbleColor: 2, bubbleBackground: 3 } as const;
+const COL = {
+    id: 0,
+    nombre: 1,
+    bubbleColor: 2,
+    bubbleBackground: 3,
+    selectorColor: 4,
+} as const;
 
 /** Cuántos valores espera cada celda de color. */
 const TOTAL_COLORES = 4;
@@ -43,6 +56,17 @@ export type Proveedor = { id: string; nombre: string };
  * servidor a cliente.
  */
 export type PaletasProveedor = Record<string, PaletaBurbujas>;
+
+/** Las dos paradas del degradado de `selector_color`. */
+export type ParadasSeleccion = readonly [string, string];
+
+/**
+ * Fondos de selección leídos de la hoja, indexados por `claveProveedor`.
+ *
+ * Mismo motivo que `PaletasProveedor` para no ser un `Map`: viaja como prop al
+ * selector de la tarjeta, que es un componente de cliente.
+ */
+export type FondosSeleccion = Record<string, ParadasSeleccion>;
 
 /**
  * Lee una celda con una lista JSON de colores.
@@ -100,9 +124,18 @@ function construirPaleta(fila: string[]): PaletaBurbujas | null {
  * `Lista_Proveedores` exija reiniciar el servidor.
  */
 export type DirectorioProveedores = {
+    /**
+     * Los proveedores en el orden en que están en la hoja.
+     *
+     * Es lo que consume el filtro del catálogo: necesita la lista completa, con
+     * su `id_proveedor`, y no solo poder resolver uno concreto. El orden es el de
+     * la hoja a propósito, para que quien la edita mande en cómo se ordenan los
+     * botones del filtro.
+     */
+    lista: Proveedor[];
     /** `id_proveedor` -> nombre tal como está escrito en la hoja. */
     nombrePorId: Map<string, string>;
-    /** Nombre normalizado (con alias aplicado) -> `id_proveedor`. */
+    /** Nombre normalizado -> `id_proveedor`. */
     idPorNombre: Map<string, string>;
     /**
      * Nombre normalizado -> paleta de burbujas de la hoja.
@@ -111,6 +144,13 @@ export type DirectorioProveedores = {
      * resto no aparece y la interfaz usa su paleta de respaldo.
      */
     paletas: PaletasProveedor;
+    /**
+     * Nombre normalizado -> paradas de `selector_color`.
+     *
+     * Igual que `paletas`: si la celda está vacía o mal formada el proveedor no
+     * aparece, y el selector cae al degradado de `bubble_background`.
+     */
+    fondosSeleccion: FondosSeleccion;
 };
 
 /**
@@ -122,9 +162,11 @@ export type DirectorioProveedores = {
 export function construirDirectorio(
     filas: string[][],
 ): DirectorioProveedores {
+    const lista: Proveedor[] = [];
     const nombrePorId = new Map<string, string>();
     const idPorNombre = new Map<string, string>();
     const paletas: PaletasProveedor = {};
+    const fondosSeleccion: FondosSeleccion = {};
 
     for (const fila of filas) {
         const id = fila[COL.id].trim();
@@ -133,14 +175,23 @@ export function construirDirectorio(
 
         const claveNombre = claveProveedor(nombre);
 
+        lista.push({ id, nombre });
         nombrePorId.set(id, nombre);
         idPorNombre.set(claveNombre, id);
 
         const paleta = construirPaleta(fila);
         if (paleta) paletas[claveNombre] = paleta;
+
+        const seleccion = leerListaDeColores(
+            fila[COL.selectorColor],
+            TOTAL_FONDOS,
+        );
+        if (seleccion) {
+            fondosSeleccion[claveNombre] = [seleccion[0], seleccion[1]];
+        }
     }
 
-    return { nombrePorId, idPorNombre, paletas };
+    return { lista, nombrePorId, idPorNombre, paletas, fondosSeleccion };
 }
 
 /**
@@ -155,17 +206,15 @@ export function idDeProveedor(
 }
 
 /**
- * Traduce un `id_proveedor` al nombre que espera la interfaz.
+ * Traduce un `id_proveedor` al nombre de proveedor.
  *
- * La interfaz colorea por nombre de proveedor (`coloresProveedor.ts`), y ahí la
- * entrada es "Farmater". Se invierte el alias para que el color siga saliendo.
+ * Devuelve el nombre tal como está escrito en `Lista_Proveedores`, que es la
+ * única fuente: la interfaz colorea por ese mismo nombre
+ * (`coloresProveedor.ts`).
  */
 export function nombreDeProveedor(
     directorio: DirectorioProveedores,
     id: string,
 ): string | null {
-    const nombreEnHoja = directorio.nombrePorId.get(id.trim());
-    if (!nombreEnHoja) return null;
-
-    return nombreEnCodigo(nombreEnHoja);
+    return directorio.nombrePorId.get(id.trim()) ?? null;
 }

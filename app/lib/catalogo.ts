@@ -5,6 +5,7 @@ import {
     COLUMNAS_PROVEEDORES,
     RANGO_PROVEEDORES,
     type DirectorioProveedores,
+    type FondosSeleccion,
     type PaletasProveedor,
 } from "./proveedores";
 
@@ -104,6 +105,8 @@ export type Catalogo = {
      */
     directorio: DirectorioProveedores;
     paletas: PaletasProveedor;
+    /** Paradas de `selector_color`, para marcar al proveedor elegido. */
+    fondosSeleccion: FondosSeleccion;
 };
 
 /** Quita acentos y pasa a minúsculas, para comparar texto escrito a mano. */
@@ -238,6 +241,7 @@ async function leerCatalogo(): Promise<Catalogo> {
         porCodigo,
         directorio,
         paletas: directorio.paletas,
+        fondosSeleccion: directorio.fondosSeleccion,
     };
 }
 
@@ -274,6 +278,29 @@ export function buscarPorCodigoBarras(
     codigo: string,
 ): Medicamento | null {
     return catalogo.porCodigo.get(codigo.trim()) ?? null;
+}
+
+/**
+ * Si un proveedor ofrece el medicamento.
+ *
+ * Es el predicado del filtro por proveedor del catálogo. Equivale a preguntar si
+ * `Producto_Lista_Proveedores` tiene una fila con ese `codigo_barras` y ese
+ * `id_proveedor`: las ofertas de `medicamento.precios` salen justo de ahí, ya
+ * traducidas de id a nombre por `agruparOfertas`.
+ *
+ * La diferencia con mirar la pestaña en crudo es que aquí no cuentan las filas
+ * cuyo precio la hoja no trae o no es usable, porque `agruparOfertas` las
+ * descarta. Es lo que se quiere: un producto que el proveedor tiene listado sin
+ * precio no aparece en la comparación, así que tampoco debería aparecer al
+ * filtrar por él.
+ */
+export function ofreceProveedor(
+    medicamento: Medicamento,
+    proveedor: string,
+): boolean {
+    return medicamento.precios.some(
+        (p) => p.proveedor.toLowerCase() === proveedor.toLowerCase(),
+    );
 }
 
 /** Oferta de un proveedor concreto para un medicamento. */

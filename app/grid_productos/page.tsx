@@ -1,24 +1,28 @@
 // Comparador de precios por proveedor
 import Link from "next/link";
 import BotonCopiarCodigo from "../ui/grid_productos/BotonCopiarCodigo";
-import BotonAgregarCarrito from "../ui/grid_productos/BotonAgregarCarrito";
-import BurbujasPrecio from "../ui/grid_productos/BurbujasPrecio";
+import FiltroProveedores from "../ui/grid_productos/FiltroProveedores";
+import SelectorProveedor from "../ui/grid_productos/SelectorProveedor";
+import type {
+    FondosSeleccion,
+    PaletasProveedor,
+} from "../lib/proveedores";
 import {
-    coloresDe,
-    formatoPrecio,
-    precioCompacto,
-} from "../ui/grid_productos/coloresProveedor";
-import type { PaletasProveedor } from "../lib/proveedores";
+    conSobrecoste,
+    sinPreciosOfertas,
+    type OfertaVisible,
+} from "../lib/tiposCatalogo";
 import { requerirSesion } from "../lib/sesion";
 import { puedeVerPrecios } from "../lib/permisos";
 // El catálogo vive en `app/lib/catalogo.ts` porque el carrito también lo
 // necesita para reconstruir sus partidas desde los códigos de barras guardados.
 import {
+    EXISTENCIAS_POR_DEFECTO,
     normalizarTexto,
     obtenerCatalogo,
     ofertasOrdenadas,
+    ofreceProveedor,
     type Medicamento,
-    type PrecioProveedor,
 } from "../lib/catalogo";
 
 /**
@@ -30,156 +34,54 @@ import {
  */
 const POR_PAGINA = 24;
 
-function IconoAhorro() {
-    return (
-        <svg
-            aria-hidden="true"
-            className="h-4 w-4"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            viewBox="0 0 24 24"
-        >
-            <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M3 7l6 6 4-4 8 8m0 0h-5m5 0v-5"
-            />
-        </svg>
-    );
-}
-
-/**
- * Ranking de proveedores ordenado de más barato a más caro. Los agotados se
- * mandan al final y se muestran atenuados, ya que no compiten por el precio.
- */
-function RankingProveedores({
-    ordenados,
-    mostrarPrecios,
-}: {
-    ordenados: PrecioProveedor[];
-    /** Con `false` se ve el orden de proveedores pero no los importes. */
-    mostrarPrecios: boolean;
-}) {
-    const ganador = ordenados.find((p) => p.disponible);
-
-    // La mayoría de los productos de la hoja solo tiene un proveedor, así que
-    // conviene decirlo en lugar de pintar una comparativa de un solo renglón
-    // como si fuera el resultado de comparar.
-    if (ordenados.length === 0) {
-        return (
-            <p className="mt-4 rounded-xl bg-gray-50 px-3 py-2.5 text-[13px] text-gray-500">
-                Sin precios registrados en la hoja.
-            </p>
-        );
-    }
-
-    return (
-        <ul className="mt-4 flex flex-col gap-1">
-            {ordenados.map((p, idx) => {
-                // Sin paletas de la hoja: el ranking solo usa clases de
-                // Tailwind (`fila`, `insignia`, `guion`), no las burbujas.
-                const colores = coloresDe(p.proveedor);
-                const esGanador = p === ganador;
-
-                return (
-                    <li
-                        key={p.proveedor}
-                        className={`flex items-center gap-2.5 rounded-xl px-2.5 py-2 ${esGanador ? colores.fila : ""
-                            }`}
-                    >
-                        {esGanador ? (
-                            <span
-                                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-mono text-xs font-bold ${colores.insignia}`}
-                            >
-                                {idx + 1}
-                            </span>
-                        ) : (
-                            <span
-                                className={`flex h-6 w-6 shrink-0 items-center justify-center font-mono text-sm ${p.disponible ? "text-gray-400" : "text-gray-300"
-                                    }`}
-                            >
-                                {idx + 1}
-                            </span>
-                        )}
-
-                        <span
-                            className={`truncate text-sm ${esGanador
-                                ? "font-bold text-gray-900"
-                                : p.disponible
-                                    ? "font-medium text-gray-600"
-                                    : "font-medium text-gray-300"
-                                }`}
-                        >
-                            {p.proveedor}
-                        </span>
-
-                        <span
-                            aria-hidden="true"
-                            className={`min-w-4 flex-1 border-t border-dashed ${esGanador
-                                ? colores.guion
-                                : p.disponible
-                                    ? "border-gray-300"
-                                    : "border-gray-200"
-                                }`}
-                        />
-
-                        {!p.disponible ? (
-                            <span className="shrink-0 text-[13px] font-semibold text-rose-400">
-                                Agotado
-                            </span>
-                        ) : (
-                            mostrarPrecios && (
-                                <span
-                                    className={`shrink-0 font-mono text-sm tabular-nums ${esGanador ? "font-bold text-gray-900" : "font-semibold text-gray-700"
-                                        }`}
-                                >
-                                    {formatoPrecio(p.precio)}
-                                </span>
-                            )
-                        )}
-                    </li>
-                );
-            })}
-        </ul>
-    );
-}
-
 function TarjetaProducto({
     medicamento,
     paletas,
+    fondos,
     mostrarPrecios,
 }: {
     medicamento: Medicamento;
     /** Colores de burbujas de `Lista_Proveedores`, para teñir el banner. */
     paletas: PaletasProveedor;
+    /** Paradas de `selector_color`, para marcar al proveedor elegido. */
+    fondos: FondosSeleccion;
     /**
      * Si se pintan los importes. Con `false` la tarjeta enseña el ranking de
      * proveedores y el ganador, pero ningún precio.
      *
-     * Como es un componente de servidor, lo que no se pinta aquí tampoco llega
-     * al navegador: no hay precio escondido en el HTML ni en el payload.
+     * Lo que la tarjeta pinta por su cuenta es de servidor, así que con `false`
+     * no llega al navegador ni en el HTML ni en el payload. Las ofertas son el
+     * caso aparte: van como prop al selector, que es de cliente, y ahí sí
+     * viajarían, así que se les quita el precio antes (ver `ofertas`).
      */
     mostrarPrecios: boolean;
 }) {
     // Orden ascendente por precio; los agotados van al final.
     const ordenados = ofertasOrdenadas(medicamento);
 
-    const disponibles = ordenados.filter((p) => p.disponible);
-    const ganador = disponibles[0] ?? null;
-    const menorPrecio = ganador?.precio ?? null;
-    const mayorPrecio = disponibles.length
-        ? disponibles[disponibles.length - 1].precio
-        : null;
-
-    // Ahorro respecto al proveedor más caro disponible. Se trunca para no
-    // prometer un porcentaje mayor al real.
-    const ahorro =
-        menorPrecio !== null && mayorPrecio !== null && mayorPrecio > 0
-            ? Math.floor(((mayorPrecio - menorPrecio) / mayorPrecio) * 100)
-            : 0;
-
-    const colores = coloresDe(ganador?.proveedor, paletas);
+    // Lo que se le entrega al selector, que es de cliente. A una cuenta de
+    // sucursal se le quitan los importes aquí, antes de que las ofertas entren
+    // en el payload: no basta con no pintarlos, porque lo que va como prop a un
+    // componente de cliente viaja al navegador.
+    //
+    // `conSobrecoste` va antes del recorte porque necesita los precios para
+    // calcular el porcentaje. El porcentaje sí sobrevive al recorte: es una
+    // proporción, no un importe (ver `OfertaVisible`).
+    const ofertas: OfertaVisible[] = conSobrecoste(
+        ordenados.map((p) => {
+            const oferta: OfertaVisible = {
+                proveedor: p.proveedor,
+                precio: p.precio,
+                disponible: p.disponible,
+                // Cuando la hoja no da una cantidad (trae la unidad de venta en
+                // esa celda) no hay tope real que aplicar, así que se usa el
+                // mismo por defecto que el carrito.
+                existencias: p.existencias ?? EXISTENCIAS_POR_DEFECTO,
+            };
+            if (p.unidad !== undefined) oferta.unidad = p.unidad;
+            return oferta;
+        }),
+    );
 
     return (
         <article className="flex flex-col rounded-3xl bg-white p-7 shadow-sm ring-1 ring-gray-200/80 transition duration-200 hover:-translate-y-1 hover:shadow-xl hover:shadow-gray-900/5 hover:ring-gray-300">
@@ -197,93 +99,27 @@ function TarjetaProducto({
                 <BotonCopiarCodigo codigo={medicamento.codigoBarras} />
             </div>
 
-            {/* Resumen: ahorro respecto al proveedor más caro. El porcentaje se
-                deriva de los precios, así que también es dato de importe y solo
-                lo ve quien puede verlos. */}
-            <div className="mt-4 flex items-center justify-between gap-2 border-t border-gray-100 text-[13px]">
-                {mostrarPrecios && ahorro > 0 && (
-                    <span className="flex items-center gap-1.5 font-semibold text-emerald-600">
-                        <IconoAhorro />
-                        Ahorra {ahorro}%
-                    </span>
-                )}
-            </div>
+            {/* Separador entre la ficha del producto y el comparador. El aviso
+                de precio que iba aquí lo pinta ahora `AvisoPrecio`, dentro de
+                `SelectorProveedor`, porque su texto y su color dependen del
+                proveedor que esté elegido. */}
+            <div className="mt-4 border-t border-gray-100" />
 
-            {/* Banner del mejor precio, teñido con el color del proveedor ganador */}
-            {ganador && menorPrecio !== null && mayorPrecio !== null && (
-                <div
-                    className={`relative isolate mt-4 overflow-hidden rounded-2xl px-5 py-4 ${colores.banner}`}
-                >
-                    {/* Fondo animado. `isolate` + `-z-10` lo dejan detrás del
-                        contenido sin sacarlo de la tarjeta. */}
-                    <div className="absolute inset-0 -z-10">
-                        <BurbujasPrecio
-                            idFiltro={`goo-precio-${medicamento.codigoBarras}`}
-                            paleta={colores.burbujas}
-                        />
-                    </div>
+            {/* El banner del proveedor lo pinta `SelectorProveedor`, porque
+                tiene que seguir a la selección del ranking.
 
-                    <div className="flex items-start justify-between gap-2">
-                        <p className="text-[11px] font-bold uppercase tracking-[0.12em] opacity-75">
-                            {disponibles.length === 1
-                                ? "Único proveedor"
-                                : mostrarPrecios
-                                    ? "Mejor precio"
-                                    : "Proveedor sugerido"}
-                        </p>
-                        {/* Con precios el nombre del proveedor va arriba, porque
-                            el dato grande es el importe. Sin ellos el proveedor
-                            pasa a ser el dato grande y aquí sobraría. */}
-                        {mostrarPrecios && (
-                            <p className="text-base font-bold leading-none">
-                                {ganador.proveedor}
-                            </p>
-                        )}
-                    </div>
-                    <div className="mt-2 flex items-end justify-between gap-2">
-                        {mostrarPrecios ? (
-                            <p className="font-mono text-3xl font-bold leading-none tabular-nums">
-                                {formatoPrecio(menorPrecio)}
-                            </p>
-                        ) : (
-                            <p className="text-2xl font-bold leading-tight">
-                                {ganador.proveedor}
-                            </p>
-                        )}
-                        {mostrarPrecios && menorPrecio !== mayorPrecio && (
-                            <p className="text-right text-xs leading-tight opacity-75">
-                                rango
-                                <br />
-                                <span className="font-mono tabular-nums">
-                                    {precioCompacto(menorPrecio)}-{precioCompacto(mayorPrecio)}
-                                </span>
-                            </p>
-                        )}
-                        {(!mostrarPrecios || menorPrecio === mayorPrecio) &&
-                            ganador.unidad && (
-                                <p className="text-right text-xs leading-tight opacity-75">
-                                    por
-                                    <br />
-                                    <span className="font-semibold">{ganador.unidad}</span>
-                                </p>
-                            )}
-                    </div>
-                </div>
-            )}
-
-            {/* Ranking completo. Es lo que ve una sucursal: el orden de
-                proveedores de más barato a más caro, sin los importes. */}
-            <RankingProveedores
-                ordenados={ordenados}
-                mostrarPrecios={mostrarPrecios}
-            />
-
-            {/* El proveedor que se agrega es el ganador del comparador: el más
-                barato entre los disponibles. */}
-            <BotonAgregarCarrito
+                Ranking completo y elegible: el orden de proveedores de más
+                barato a más caro, con el ganador marcado por defecto y la fila
+                elegida teñida con el `bubble_background` de su proveedor. El
+                botón agrega el proveedor que quede seleccionado, no forzosamente
+                el más barato. */}
+            <SelectorProveedor
                 codigoBarras={medicamento.codigoBarras}
-                proveedor={ganador?.proveedor ?? null}
                 nombre={medicamento.nombre}
+                ofertas={mostrarPrecios ? ofertas : sinPreciosOfertas(ofertas)}
+                paletas={paletas}
+                fondos={fondos}
+                mostrarPrecios={mostrarPrecios}
             />
         </article>
     );
@@ -317,10 +153,28 @@ function ventanaDePaginas(actual: number, total: number): (number | null)[] {
     return conHuecos;
 }
 
-/** Enlace de paginación que conserva el término de búsqueda. */
-function enlacePagina(pagina: number, q: string): string {
+/**
+ * URL del catálogo con el estado que se le pase.
+ *
+ * Único sitio donde se arma la query, para que ningún enlace se deje por el
+ * camino un parámetro de otro: la paginación tiene que conservar el filtro y la
+ * búsqueda, y el filtro tiene que conservar la búsqueda.
+ *
+ * Los valores por defecto (sin búsqueda, sin filtro, página 1) se omiten, así la
+ * portada del catálogo es `/grid_productos` a secas.
+ */
+function enlaceCatalogo({
+    q = "",
+    prov = null,
+    pagina = 1,
+}: {
+    q?: string;
+    prov?: string | null;
+    pagina?: number;
+}): string {
     const params = new URLSearchParams();
     if (q) params.set("q", q);
+    if (prov) params.set("prov", prov);
     if (pagina > 1) params.set("p", String(pagina));
 
     const cadena = params.toString();
@@ -330,7 +184,7 @@ function enlacePagina(pagina: number, q: string): string {
 export default async function GridProductos({
     searchParams,
 }: {
-    searchParams: Promise<{ q?: string; p?: string }>;
+    searchParams: Promise<{ q?: string; p?: string; prov?: string }>;
 }) {
     const [parametros, catalogo, sesion] = await Promise.all([
         searchParams,
@@ -348,12 +202,38 @@ export default async function GridProductos({
 
     const q = (parametros.q ?? "").trim();
 
-    // El filtro compara contra `textoBusqueda`, que ya viene normalizado, así
+    // La búsqueda compara contra `textoBusqueda`, que ya viene normalizado, así
     // que sirve tanto para el nombre como para el código de barras.
     const termino = normalizarTexto(q);
-    const encontrados = termino
+    const buscados = termino
         ? catalogo.medicamentos.filter((m) => m.textoBusqueda.includes(termino))
         : catalogo.medicamentos;
+
+    // Proveedor filtrado. Llega por URL como `id_proveedor`, así que puede venir
+    // con cualquier cosa: si no está en `Lista_Proveedores` se ignora el filtro
+    // en lugar de devolver una página vacía sin explicación.
+    const provPedido = (parametros.prov ?? "").trim();
+    const nombreFiltrado =
+        catalogo.directorio.nombrePorId.get(provPedido) ?? null;
+    const prov = nombreFiltrado ? provPedido : null;
+
+    // Cuántos productos ofrece cada proveedor de lo ya encontrado por la
+    // búsqueda. Se cuenta sobre `buscados` y no sobre el catálogo entero para que
+    // el número de la pastilla diga lo que se va a ver al pulsarla.
+    const conteos = new Map<string, number>();
+    for (const proveedor of catalogo.directorio.lista) {
+        conteos.set(
+            proveedor.id,
+            buscados.reduce(
+                (total, m) => (ofreceProveedor(m, proveedor.nombre) ? total + 1 : total),
+                0,
+            ),
+        );
+    }
+
+    const encontrados = nombreFiltrado
+        ? buscados.filter((m) => ofreceProveedor(m, nombreFiltrado))
+        : buscados;
 
     const totalPaginas = Math.max(Math.ceil(encontrados.length / POR_PAGINA), 1);
 
@@ -372,6 +252,17 @@ export default async function GridProductos({
         // compartidos con las rutas hijas del segmento y con `loading.tsx`.
         <main>
             <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+                {/* Cambiar de proveedor vuelve a la página 1: el conjunto de
+                    resultados es otro, y la página 12 del filtro anterior no
+                    significa nada en el nuevo. La búsqueda sí se conserva. */}
+                <FiltroProveedores
+                    proveedores={catalogo.directorio.lista}
+                    activo={prov}
+                    conteos={conteos}
+                    paletas={catalogo.paletas}
+                    enlaceDe={(id) => enlaceCatalogo({ q, prov: id })}
+                />
+
                 <p className="mb-4 text-sm text-gray-500">
                     {encontrados.length > 0 ? (
                         <>
@@ -391,11 +282,38 @@ export default async function GridProductos({
                                     <span className="font-semibold text-gray-700">“{q}”</span>
                                 </>
                             )}
+                            {nombreFiltrado && (
+                                <>
+                                    {" "}
+                                    de{" "}
+                                    <span className="font-semibold text-gray-700">
+                                        {nombreFiltrado}
+                                    </span>
+                                </>
+                            )}
                         </>
                     ) : (
                         <>
-                            Ningún producto coincide con{" "}
-                            <span className="font-semibold text-gray-700">“{q}”</span>.{" "}
+                            Ningún producto{" "}
+                            {nombreFiltrado && (
+                                <>
+                                    de{" "}
+                                    <span className="font-semibold text-gray-700">
+                                        {nombreFiltrado}
+                                    </span>{" "}
+                                </>
+                            )}
+                            {q ? (
+                                <>
+                                    coincide con{" "}
+                                    <span className="font-semibold text-gray-700">
+                                        “{q}”
+                                    </span>
+                                </>
+                            ) : (
+                                "está registrado en la hoja"
+                            )}
+                            .{" "}
                             <Link
                                 href="/grid_productos"
                                 className="font-semibold text-blue-600 hover:underline"
@@ -419,6 +337,7 @@ export default async function GridProductos({
                             key={med.codigoBarras}
                             medicamento={med}
                             paletas={catalogo.paletas}
+                            fondos={catalogo.fondosSeleccion}
                             mostrarPrecios={mostrarPrecios}
                         />
                     ))}
@@ -433,7 +352,7 @@ export default async function GridProductos({
                     >
                         {pagina > 1 ? (
                             <Link
-                                href={enlacePagina(pagina - 1, q)}
+                                href={enlaceCatalogo({ q, prov, pagina: pagina - 1 })}
                                 rel="prev"
                                 className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
@@ -460,7 +379,7 @@ export default async function GridProductos({
                             ) : (
                                 <Link
                                     key={n}
-                                    href={enlacePagina(n, q)}
+                                    href={enlaceCatalogo({ q, prov, pagina: n })}
                                     aria-current={n === pagina ? "page" : undefined}
                                     aria-label={`Página ${n}`}
                                     className={`flex h-10 min-w-10 items-center justify-center rounded-lg px-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${n === pagina
@@ -475,7 +394,7 @@ export default async function GridProductos({
 
                         {pagina < totalPaginas ? (
                             <Link
-                                href={enlacePagina(pagina + 1, q)}
+                                href={enlaceCatalogo({ q, prov, pagina: pagina + 1 })}
                                 rel="next"
                                 className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >

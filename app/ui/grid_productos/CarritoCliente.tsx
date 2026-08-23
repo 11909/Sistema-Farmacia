@@ -4,17 +4,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import BotonCopiarCodigo from "./BotonCopiarCodigo";
 import BurbujasPrecio from "./BurbujasPrecio";
+import SelectorCantidad from "./SelectorCantidad";
 import { coloresDe, formatoPrecio } from "./coloresProveedor";
 import type { PaletasProveedor } from "../../lib/proveedores";
 import {
     confirmarPedidoDeSesion,
     guardarCarritoDeSesion,
 } from "../../lib/acciones/carrito";
-import {
-    acotarCantidad,
-    CANTIDAD_MAXIMA,
-    type LineaVisible,
-} from "../../lib/tiposCarrito";
+import { acotarCantidad, type LineaVisible } from "../../lib/tiposCarrito";
 
 /**
  * Margen antes de guardar en la hoja.
@@ -145,7 +142,7 @@ function ChipCristal({
  * Etiqueta con el nombre del proveedor, sobre cristal.
  *
  * El texto va en `currentColor`: hereda el color del grupo y contrasta tanto
- * sobre las paletas claras (texto oscuro) como sobre la de Farmater (blanco),
+ * sobre las paletas claras (texto oscuro) como sobre la de Farmacenter (blanco),
  * sin necesitar un caso por proveedor.
  */
 function EtiquetaProveedor({
@@ -162,75 +159,6 @@ function EtiquetaProveedor({
         >
             {proveedor}
         </ChipCristal>
-    );
-}
-
-type SelectorCantidadProps = {
-    valor: number;
-    maximo: number;
-    etiqueta: string;
-    onCambio: (cantidad: number) => void;
-};
-
-/**
- * Stepper de cantidad. El número es un `input` para poder teclear pedidos
- * grandes sin pulsar el `+` cincuenta veces; el valor se normaliza al salir del
- * campo para que nunca quede vacío ni fuera del rango permitido.
- */
-function SelectorCantidad({
-    valor,
-    maximo,
-    etiqueta,
-    onCambio,
-}: SelectorCantidadProps) {
-    const [borrador, setBorrador] = useState<string | null>(null);
-    const tope = Math.min(maximo, CANTIDAD_MAXIMA);
-
-    function confirmar(texto: string) {
-        const numero = Number.parseInt(texto, 10);
-        setBorrador(null);
-        if (Number.isNaN(numero)) return;
-        onCambio(Math.min(Math.max(numero, 1), tope));
-    }
-
-    return (
-        <div className="inline-flex items-center rounded-xl border border-gray-200 bg-gray-50 p-1">
-            <button
-                type="button"
-                onClick={() => onCambio(valor - 1)}
-                disabled={valor <= 1}
-                aria-label={`Quitar una pieza de ${etiqueta}`}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-lg font-semibold leading-none text-gray-600 transition hover:bg-white hover:text-gray-900 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-transparent disabled:hover:shadow-none"
-            >
-                −
-            </button>
-
-            <label className="sr-only" htmlFor={`cantidad-${etiqueta}`}>
-                Cantidad de {etiqueta}
-            </label>
-            <input
-                id={`cantidad-${etiqueta}`}
-                type="text"
-                inputMode="numeric"
-                value={borrador ?? String(valor)}
-                onChange={(e) => setBorrador(e.target.value.replace(/\D/g, ""))}
-                onBlur={(e) => confirmar(e.target.value)}
-                onKeyDown={(e) => {
-                    if (e.key === "Enter") e.currentTarget.blur();
-                }}
-                className="w-11 bg-transparent text-center font-mono text-sm font-bold tabular-nums text-gray-900 focus:outline-none focus-visible:rounded focus-visible:ring-2 focus-visible:ring-blue-500"
-            />
-
-            <button
-                type="button"
-                onClick={() => onCambio(valor + 1)}
-                disabled={valor >= tope}
-                aria-label={`Agregar una pieza de ${etiqueta}`}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-lg font-semibold leading-none text-gray-600 transition hover:bg-white hover:text-gray-900 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-transparent disabled:hover:shadow-none"
-            >
-                +
-            </button>
-        </div>
     );
 }
 
@@ -718,7 +646,7 @@ export default function CarritoCliente({
                                 proveedor. El texto usa `colores.banner` y
                                 opacidades de `currentColor`, como en el banner:
                                 así contrasta tanto sobre las paletas claras como
-                                sobre la oscura de Farmater. */}
+                                sobre la oscura de Farmacenter. */}
                             <header
                                 className={`relative isolate flex flex-wrap items-center gap-x-3 gap-y-1.5 overflow-hidden px-5 py-4 sm:px-7 ${colores.banner}`}
                             >
@@ -827,7 +755,7 @@ export default function CarritoCliente({
                         que teñirlo con el color de uno de ellos daría a entender
                         que el total es solo suyo. Texto oscuro fijo, no
                         `colores.banner`: sobre este fondo claro el blanco de
-                        Farmater desaparecería. */}
+                        Farmacenter desaparecería. */}
                     <div className="relative isolate mt-4 overflow-hidden rounded-2xl px-5 py-4 text-emerald-950">
                         <div className="absolute inset-0 -z-10">
                             <BurbujasPrecio idFiltro="goo-carrito-total" />
