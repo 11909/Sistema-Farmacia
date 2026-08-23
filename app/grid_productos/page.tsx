@@ -17,6 +17,7 @@ import { puedeVerPrecios } from "../lib/permisos";
 // El catálogo vive en `app/lib/catalogo.ts` porque el carrito también lo
 // necesita para reconstruir sus partidas desde los códigos de barras guardados.
 import {
+    EXISTENCIAS_POR_DEFECTO,
     normalizarTexto,
     obtenerCatalogo,
     ofertasOrdenadas,
@@ -72,6 +73,10 @@ function TarjetaProducto({
                 proveedor: p.proveedor,
                 precio: p.precio,
                 disponible: p.disponible,
+                // Cuando la hoja no da una cantidad (trae la unidad de venta en
+                // esa celda) no hay tope real que aplicar, así que se usa el
+                // mismo por defecto que el carrito.
+                existencias: p.existencias ?? EXISTENCIAS_POR_DEFECTO,
             };
             if (p.unidad !== undefined) oferta.unidad = p.unidad;
             return oferta;

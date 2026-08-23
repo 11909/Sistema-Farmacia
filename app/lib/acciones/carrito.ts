@@ -11,6 +11,7 @@ import {
 import { generarPedidoXlsx, nombreArchivoPedido } from "../pedidoXlsx";
 import { puedeVerPrecios } from "../permisos";
 import {
+    CANTIDAD_MAXIMA,
     sinPrecios,
     type LineaVisible,
     type PartidaGuardada,
@@ -108,7 +109,21 @@ export async function guardarCarritoDeSesion(
 }
 
 /**
- * Suma una pieza al carrito de la cuenta en sesión, desde el catálogo.
+ * Acota la cantidad que llega del cliente al rango que la hoja admite.
+ *
+ * El tope por existencias lo aplica después `reconstruirLinea` con el dato del
+ * catálogo; aquí solo se descarta lo que no es un entero positivo razonable, que
+ * es lo que puede llegar por ser esto un endpoint POST alcanzable a mano.
+ */
+function sanearCantidad(valor: unknown): number {
+    const numero = typeof valor === "number" ? valor : Number(valor);
+    if (!Number.isFinite(numero)) return 1;
+
+    return Math.min(Math.max(Math.trunc(numero), 1), CANTIDAD_MAXIMA);
+}
+
+/**
+ * Suma piezas al carrito de la cuenta en sesión, desde el catálogo.
  *
  * El precio no se recibe del cliente a propósito: lo resuelve el servidor desde
  * el catálogo a partir del código de barras y el proveedor. Aceptarlo como
@@ -117,6 +132,7 @@ export async function guardarCarritoDeSesion(
 export async function agregarAlCarritoDeSesion(
     codigoBarras: string,
     proveedor: string,
+    cantidad: unknown = 1,
 ): Promise<ResultadoGuardado> {
     const sesion = await obtenerSesion();
     const email = sesion?.user?.email;
@@ -134,6 +150,7 @@ export async function agregarAlCarritoDeSesion(
             rol,
             codigoBarras,
             proveedor,
+            sanearCantidad(cantidad),
         );
         refresh();
         return { ok: true, lineas: paraElRol(lineas, rol) };

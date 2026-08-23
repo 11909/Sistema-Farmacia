@@ -24,6 +24,14 @@ export type OfertaVisible = {
     /** Unidad de venta declarada por el proveedor (PZ, PAQ, CAJA...). */
     unidad?: string;
     /**
+     * Piezas en existencia, que es el tope del selector de cantidad.
+     *
+     * No es dato de importe, así que viaja también a las cuentas que no ven
+     * precios: sin él no podrían saber cuántas piezas pueden pedir. El carrito
+     * hace lo mismo con `LineaVisible`.
+     */
+    existencias: number;
+    /**
      * Cuánto más caro es este proveedor que el más barato disponible, en
      * porcentaje entero. `0` en el primer puesto del ranking.
      *

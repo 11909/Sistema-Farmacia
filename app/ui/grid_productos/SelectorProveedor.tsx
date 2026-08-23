@@ -4,6 +4,7 @@ import { useState } from "react";
 import AvisoPrecio from "./AvisoPrecio";
 import BannerProveedor from "./BannerProveedor";
 import BotonAgregarCarrito from "./BotonAgregarCarrito";
+import SelectorCantidad from "./SelectorCantidad";
 import {
     coloresDe,
     fondoDeSeleccion,
@@ -14,6 +15,7 @@ import type {
     PaletasProveedor,
 } from "../../lib/proveedores";
 import { claveProveedor } from "../../lib/nombresProveedor";
+import { acotarCantidad } from "../../lib/tiposCarrito";
 import type { OfertaVisible } from "../../lib/tiposCatalogo";
 
 /**
@@ -77,6 +79,18 @@ export default function SelectorProveedor({
         () => disponibles[0]?.proveedor ?? null,
     );
 
+    /**
+     * Piezas que se van a agregar.
+     *
+     * Vive aquí y no dentro del botón para que cambiar de proveedor no la
+     * reinicie: comparar proveedores después de haber puesto 20 piezas es lo
+     * normal. Como cada proveedor tiene sus existencias, el valor se acota al
+     * pintar en lugar de guardarse ya recortado, así que volver a un proveedor
+     * con más existencia recupera la cantidad que se había puesto.
+     */
+    const [cantidad, setCantidad] = useState(1);
+    const [agregando, setAgregando] = useState(false);
+
     // La mayoría de los productos de la hoja solo tiene un proveedor, así que
     // conviene decirlo en lugar de pintar una comparativa de un solo renglón
     // como si fuera el resultado de comparar.
@@ -90,6 +104,7 @@ export default function SelectorProveedor({
                     codigoBarras={codigoBarras}
                     proveedor={null}
                     nombre={nombre}
+                    cantidad={1}
                 />
             </>
         );
@@ -99,6 +114,12 @@ export default function SelectorProveedor({
     // banner que pintar: no habría proveedor del que hablar.
     const ofertaElegida =
         ofertas.find((o) => o.proveedor === seleccionado) ?? null;
+
+    // Acotada a las existencias del proveedor elegido, no a las del que estaba
+    // elegido cuando se escribió el número.
+    const cantidadValida = ofertaElegida
+        ? acotarCantidad(cantidad, ofertaElegida.existencias)
+        : 1;
 
     return (
         <>
@@ -223,6 +244,26 @@ export default function SelectorProveedor({
                 </div>
             </fieldset>
 
+            {/* Cantidad a agregar. Va en su propia fila, con la etiqueta a la
+                izquierda y el control a la derecha, como las filas del resumen
+                del pedido en el carrito. Encima del botón y no al lado para que
+                el botón siga a lo ancho y le quepan sus rótulos largos
+                ("Agregado al carrito", "No se pudo agregar"). */}
+            {ofertaElegida && (
+                <div className="mt-4 flex items-center justify-between gap-3">
+                    <span className="text-[13px] font-semibold text-gray-500">
+                        Cantidad
+                    </span>
+                    <SelectorCantidad
+                        valor={cantidadValida}
+                        maximo={ofertaElegida.existencias}
+                        etiqueta={nombre}
+                        onCambio={setCantidad}
+                        deshabilitado={agregando}
+                    />
+                </div>
+            )}
+
             {/* `key` con el proveedor: cambiar de proveedor remonta el botón y
                 con él se va su estado de "Agregado al carrito". Si no, tras
                 agregar a City el botón seguiría diciendo "Agregado" al pasar a
@@ -232,6 +273,8 @@ export default function SelectorProveedor({
                 codigoBarras={codigoBarras}
                 proveedor={seleccionado}
                 nombre={nombre}
+                cantidad={cantidadValida}
+                onPendiente={setAgregando}
             />
         </>
     );
