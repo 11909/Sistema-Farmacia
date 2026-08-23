@@ -16,9 +16,9 @@ import type { OfertaVisible } from "../../lib/tiposCatalogo";
  *
  * Con el primer puesto elegido la leyenda es la de siempre ("Mejor precio" para
  * administradores, "Proveedor sugerido" para sucursales, "Único proveedor" si no
- * hay con quién comparar). Con cualquier otro pasa a decir el puesto que ocupa y
- * cuánto se paga de más respecto al primero, que es el aviso de que se está
- * dejando pasar el precio más bajo.
+ * hay con quién comparar). Con cualquier otro pasa a decir el puesto que ocupa,
+ * que es el aviso de que se está dejando pasar el precio más bajo. El cuánto se
+ * paga de más lo dice `AvisoPrecio`, encima del banner.
  *
  * Estaba en `page.tsx` como servidor. Se movió aquí porque la selección es estado
  * de cliente y el banner tiene que seguirla. Los importes siguen sin llegar al
@@ -57,10 +57,6 @@ export default function BannerProveedor({
         .filter((p): p is number => p !== undefined);
     const menor = precios.length ? Math.min(...precios) : null;
     const mayor = precios.length ? Math.max(...precios) : null;
-
-    // Viene calculado del servidor, así que está también cuando los precios no:
-    // el sobrecoste es una proporción y no revela el importe (ver `OfertaVisible`).
-    const extra = puesto > 1 ? (seleccionada.extra ?? 0) : 0;
 
     const leyenda =
         puesto > 1
@@ -109,19 +105,10 @@ export default function BannerProveedor({
                     </p>
                 )}
 
-                {/* El hueco de la derecha va al dato más pertinente de los tres.
-                    El sobrecoste manda sobre el rango: si se eligió un proveedor
-                    que no es el más barato, lo que hace falta saber es cuánto se
-                    paga de más, no entre qué precios se mueve el producto. */}
-                {extra > 0 ? (
-                    <p className="text-right text-xs leading-tight opacity-75">
-                        de más
-                        <br />
-                        <span className="font-mono font-bold tabular-nums">
-                            +{extra}%
-                        </span>
-                    </p>
-                ) : conPrecio && menor !== null && mayor !== null && menor !== mayor ? (
+                {/* El sobrecoste del proveedor elegido no va aquí, sino en el
+                    renglón de aviso de encima del banner (`AvisoPrecio`), donde
+                    tiene el icono de tendencia que lo explica. */}
+                {conPrecio && menor !== null && mayor !== null && menor !== mayor ? (
                     <p className="text-right text-xs leading-tight opacity-75">
                         rango
                         <br />

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import AvisoPrecio from "./AvisoPrecio";
 import BannerProveedor from "./BannerProveedor";
 import BotonAgregarCarrito from "./BotonAgregarCarrito";
 import {
@@ -102,13 +103,16 @@ export default function SelectorProveedor({
     return (
         <>
             {ofertaElegida && (
-                <BannerProveedor
-                    idFiltro={`goo-precio-${codigoBarras}`}
-                    ofertas={ofertas}
-                    seleccionada={ofertaElegida}
-                    paletas={paletas}
-                    mostrarPrecios={mostrarPrecios}
-                />
+                <>
+                    <AvisoPrecio ofertas={ofertas} seleccionada={ofertaElegida} />
+                    <BannerProveedor
+                        idFiltro={`goo-precio-${codigoBarras}`}
+                        ofertas={ofertas}
+                        seleccionada={ofertaElegida}
+                        paletas={paletas}
+                        mostrarPrecios={mostrarPrecios}
+                    />
+                </>
             )}
 
             <fieldset className="mt-4">

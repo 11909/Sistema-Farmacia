@@ -33,25 +33,6 @@ import {
  */
 const POR_PAGINA = 24;
 
-function IconoAhorro() {
-    return (
-        <svg
-            aria-hidden="true"
-            className="h-4 w-4"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            viewBox="0 0 24 24"
-        >
-            <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M3 7l6 6 4-4 8 8m0 0h-5m5 0v-5"
-            />
-        </svg>
-    );
-}
-
 function TarjetaProducto({
     medicamento,
     paletas,
@@ -76,26 +57,6 @@ function TarjetaProducto({
 }) {
     // Orden ascendente por precio; los agotados van al final.
     const ordenados = ofertasOrdenadas(medicamento);
-    const disponibles = ordenados.filter((p) => p.disponible);
-
-    /**
-     * Distancia entre el proveedor más barato y el más caro de los disponibles.
-     *
-     * Se enuncia como "hasta X% de diferencia" y no como "ahorra X%" porque es un
-     * dato de la comparación, no de la elección: el banner de abajo puede estar
-     * mostrando un proveedor que no es el más barato, y un "ahorra 30%" justo
-     * encima de un "+30% de más" se contradiría.
-     *
-     * Se trunca para no anunciar un porcentaje mayor al real.
-     */
-    const menor = disponibles[0]?.precio ?? null;
-    const mayor = disponibles.length
-        ? disponibles[disponibles.length - 1].precio
-        : null;
-    const diferencia =
-        menor !== null && mayor !== null && mayor > 0
-            ? Math.floor(((mayor - menor) / mayor) * 100)
-            : 0;
 
     // Lo que se le entrega al selector, que es de cliente. A una cuenta de
     // sucursal se le quitan los importes aquí, antes de que las ofertas entren
@@ -133,17 +94,11 @@ function TarjetaProducto({
                 <BotonCopiarCodigo codigo={medicamento.codigoBarras} />
             </div>
 
-            {/* Resumen: cuánto separa al proveedor más barato del más caro. El
-                porcentaje se deriva de los precios, así que también es dato de
-                importe y solo lo ve quien puede verlos. */}
-            <div className="mt-4 flex items-center justify-between gap-2 border-t border-gray-100 text-[13px]">
-                {mostrarPrecios && diferencia > 0 && (
-                    <span className="flex items-center gap-1.5 font-semibold text-emerald-600">
-                        <IconoAhorro />
-                        Hasta {diferencia}% de diferencia
-                    </span>
-                )}
-            </div>
+            {/* Separador entre la ficha del producto y el comparador. El aviso
+                de precio que iba aquí lo pinta ahora `AvisoPrecio`, dentro de
+                `SelectorProveedor`, porque su texto y su color dependen del
+                proveedor que esté elegido. */}
+            <div className="mt-4 border-t border-gray-100" />
 
             {/* El banner del proveedor lo pinta `SelectorProveedor`, porque
                 tiene que seguir a la selección del ranking.
