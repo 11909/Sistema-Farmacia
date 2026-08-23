@@ -2,7 +2,13 @@
 
 import { refresh } from "next/cache";
 import { obtenerSesion } from "../sesion";
-import { agregarAlCarrito, guardarCarrito, leerCarrito } from "../carrito";
+import {
+    agregarAlCarrito,
+    confirmarPedido,
+    guardarCarrito,
+    leerCarrito,
+} from "../carrito";
+import { generarPedidoXlsx, nombreArchivoPedido } from "../pedidoXlsx";
 import { puedeVerPrecios } from "../permisos";
 import {
     sinPrecios,
@@ -134,6 +140,66 @@ export async function agregarAlCarritoDeSesion(
     } catch (error) {
         console.error(
             "[carrito] No se pudo agregar al carrito:",
+            error instanceof Error ? error.message : error,
+        );
+        return { ok: false, motivo: "error" };
+    }
+}
+
+export type ResultadoConfirmacion =
+    | {
+        ok: true;
+        folio: string;
+        nombreArchivo: string;
+        /** El .xlsx en base64; el navegador lo descarga sin pedir nada más. */
+        archivo: string;
+    }
+    | { ok: false; motivo: "sin-sesion" | "vacio" | "error" };
+
+/**
+ * Confirma el carrito de la cuenta en sesión y devuelve su hoja de cálculo.
+ *
+ * Las dos cosas van juntas y en este orden a propósito: el archivo se arma con
+ * el pedido tal como quedó registrado, así que si la escritura en la hoja falla
+ * no se entrega ningún .xlsx. Al revés, un archivo descargado sería la prueba de
+ * un pedido que la farmacia no tiene apuntado.
+ *
+ * Tras confirmar, la cuenta se queda sin carrito abierto: el siguiente producto
+ * que agregue abre un folio nuevo.
+ */
+export async function confirmarPedidoDeSesion(): Promise<ResultadoConfirmacion> {
+    const sesion = await obtenerSesion();
+    const email = sesion?.user?.email;
+    const rol = sesion?.user?.rol;
+
+    if (!email || !rol) return { ok: false, motivo: "sin-sesion" };
+
+    try {
+        const pedido = await confirmarPedido(email);
+        // Sin carrito abierto o sin partidas válidas no hay pedido que
+        // confirmar. Puede pasar de verdad: dos pestañas abiertas y la otra ya
+        // lo confirmó.
+        if (!pedido) return { ok: false, motivo: "vacio" };
+
+        const archivo = await generarPedidoXlsx(
+            pedido,
+            email,
+            puedeVerPrecios(rol),
+        );
+
+        // La insignia del carrito vive en el layout y ahora tiene que marcar
+        // cero, así que hay que refrescar el árbol del servidor.
+        refresh();
+
+        return {
+            ok: true,
+            folio: pedido.folio,
+            nombreArchivo: nombreArchivoPedido(pedido),
+            archivo,
+        };
+    } catch (error) {
+        console.error(
+            "[carrito] No se pudo confirmar el pedido:",
             error instanceof Error ? error.message : error,
         );
         return { ok: false, motivo: "error" };
