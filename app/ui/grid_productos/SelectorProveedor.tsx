@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import BannerProveedor from "./BannerProveedor";
 import BotonAgregarCarrito from "./BotonAgregarCarrito";
 import {
     coloresDe,
@@ -15,13 +16,17 @@ import { claveProveedor } from "../../lib/nombresProveedor";
 import type { OfertaVisible } from "../../lib/tiposCatalogo";
 
 /**
- * Ranking de proveedores de una tarjeta, con el proveedor elegible.
+ * Bloque de comparación de una tarjeta: banner del proveedor elegido, ranking
+ * seleccionable y botón de carrito.
  *
  * Antes era un componente de servidor que solo pintaba el orden, y al carrito
  * iba siempre el ganador de la comparación. Ahora la fila es seleccionable: el
  * ganador es la opción marcada por defecto, pero se puede comprar a otro
  * proveedor (porque el barato tarda, porque ya se le hace un pedido a esa casa,
  * o por lo que sea), y el botón agrega el que esté seleccionado.
+ *
+ * El banner vive aquí dentro, y no en la tarjeta, porque tiene que seguir a la
+ * selección: es este componente el que tiene el estado.
  *
  * La fila elegida se marca con el `selector_color` de su proveedor, tal como
  * está en `Lista_Proveedores` (ver `fondoDeSeleccion`). Es color plano y no el
@@ -89,8 +94,23 @@ export default function SelectorProveedor({
         );
     }
 
+    // La oferta marcada. `null` cuando todas están agotadas, y entonces no hay
+    // banner que pintar: no habría proveedor del que hablar.
+    const ofertaElegida =
+        ofertas.find((o) => o.proveedor === seleccionado) ?? null;
+
     return (
         <>
+            {ofertaElegida && (
+                <BannerProveedor
+                    idFiltro={`goo-precio-${codigoBarras}`}
+                    ofertas={ofertas}
+                    seleccionada={ofertaElegida}
+                    paletas={paletas}
+                    mostrarPrecios={mostrarPrecios}
+                />
+            )}
+
             <fieldset className="mt-4">
                 <legend className="sr-only">
                     Proveedor al que comprar {nombre}

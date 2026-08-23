@@ -199,3 +199,5 @@ export function formatoPrecio(valor: number) {
 export function precioCompacto(valor: number) {
     return `$${Math.round(valor)}`;
 }
+
+

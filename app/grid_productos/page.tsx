@@ -1,19 +1,14 @@
 // Comparador de precios por proveedor
 import Link from "next/link";
 import BotonCopiarCodigo from "../ui/grid_productos/BotonCopiarCodigo";
-import BurbujasPrecio from "../ui/grid_productos/BurbujasPrecio";
 import FiltroProveedores from "../ui/grid_productos/FiltroProveedores";
 import SelectorProveedor from "../ui/grid_productos/SelectorProveedor";
-import {
-    coloresDe,
-    formatoPrecio,
-    precioCompacto,
-} from "../ui/grid_productos/coloresProveedor";
 import type {
     FondosSeleccion,
     PaletasProveedor,
 } from "../lib/proveedores";
 import {
+    conSobrecoste,
     sinPreciosOfertas,
     type OfertaVisible,
 } from "../lib/tiposCatalogo";
@@ -81,36 +76,46 @@ function TarjetaProducto({
 }) {
     // Orden ascendente por precio; los agotados van al final.
     const ordenados = ofertasOrdenadas(medicamento);
-
     const disponibles = ordenados.filter((p) => p.disponible);
-    const ganador = disponibles[0] ?? null;
-    const menorPrecio = ganador?.precio ?? null;
-    const mayorPrecio = disponibles.length
+
+    /**
+     * Distancia entre el proveedor más barato y el más caro de los disponibles.
+     *
+     * Se enuncia como "hasta X% de diferencia" y no como "ahorra X%" porque es un
+     * dato de la comparación, no de la elección: el banner de abajo puede estar
+     * mostrando un proveedor que no es el más barato, y un "ahorra 30%" justo
+     * encima de un "+30% de más" se contradiría.
+     *
+     * Se trunca para no anunciar un porcentaje mayor al real.
+     */
+    const menor = disponibles[0]?.precio ?? null;
+    const mayor = disponibles.length
         ? disponibles[disponibles.length - 1].precio
         : null;
-
-    // Ahorro respecto al proveedor más caro disponible. Se trunca para no
-    // prometer un porcentaje mayor al real.
-    const ahorro =
-        menorPrecio !== null && mayorPrecio !== null && mayorPrecio > 0
-            ? Math.floor(((mayorPrecio - menorPrecio) / mayorPrecio) * 100)
+    const diferencia =
+        menor !== null && mayor !== null && mayor > 0
+            ? Math.floor(((mayor - menor) / mayor) * 100)
             : 0;
-
-    const colores = coloresDe(ganador?.proveedor, paletas);
 
     // Lo que se le entrega al selector, que es de cliente. A una cuenta de
     // sucursal se le quitan los importes aquí, antes de que las ofertas entren
     // en el payload: no basta con no pintarlos, porque lo que va como prop a un
     // componente de cliente viaja al navegador.
-    const ofertas: OfertaVisible[] = ordenados.map((p) => {
-        const oferta: OfertaVisible = {
-            proveedor: p.proveedor,
-            precio: p.precio,
-            disponible: p.disponible,
-        };
-        if (p.unidad !== undefined) oferta.unidad = p.unidad;
-        return oferta;
-    });
+    //
+    // `conSobrecoste` va antes del recorte porque necesita los precios para
+    // calcular el porcentaje. El porcentaje sí sobrevive al recorte: es una
+    // proporción, no un importe (ver `OfertaVisible`).
+    const ofertas: OfertaVisible[] = conSobrecoste(
+        ordenados.map((p) => {
+            const oferta: OfertaVisible = {
+                proveedor: p.proveedor,
+                precio: p.precio,
+                disponible: p.disponible,
+            };
+            if (p.unidad !== undefined) oferta.unidad = p.unidad;
+            return oferta;
+        }),
+    );
 
     return (
         <article className="flex flex-col rounded-3xl bg-white p-7 shadow-sm ring-1 ring-gray-200/80 transition duration-200 hover:-translate-y-1 hover:shadow-xl hover:shadow-gray-900/5 hover:ring-gray-300">
@@ -128,81 +133,22 @@ function TarjetaProducto({
                 <BotonCopiarCodigo codigo={medicamento.codigoBarras} />
             </div>
 
-            {/* Resumen: ahorro respecto al proveedor más caro. El porcentaje se
-                deriva de los precios, así que también es dato de importe y solo
-                lo ve quien puede verlos. */}
+            {/* Resumen: cuánto separa al proveedor más barato del más caro. El
+                porcentaje se deriva de los precios, así que también es dato de
+                importe y solo lo ve quien puede verlos. */}
             <div className="mt-4 flex items-center justify-between gap-2 border-t border-gray-100 text-[13px]">
-                {mostrarPrecios && ahorro > 0 && (
+                {mostrarPrecios && diferencia > 0 && (
                     <span className="flex items-center gap-1.5 font-semibold text-emerald-600">
                         <IconoAhorro />
-                        Ahorra {ahorro}%
+                        Hasta {diferencia}% de diferencia
                     </span>
                 )}
             </div>
 
-            {/* Banner del mejor precio, teñido con el color del proveedor ganador */}
-            {ganador && menorPrecio !== null && mayorPrecio !== null && (
-                <div
-                    className={`relative isolate mt-4 overflow-hidden rounded-2xl px-5 py-4 ${colores.banner}`}
-                >
-                    {/* Fondo animado. `isolate` + `-z-10` lo dejan detrás del
-                        contenido sin sacarlo de la tarjeta. */}
-                    <div className="absolute inset-0 -z-10">
-                        <BurbujasPrecio
-                            idFiltro={`goo-precio-${medicamento.codigoBarras}`}
-                            paleta={colores.burbujas}
-                        />
-                    </div>
+            {/* El banner del proveedor lo pinta `SelectorProveedor`, porque
+                tiene que seguir a la selección del ranking.
 
-                    <div className="flex items-start justify-between gap-2">
-                        <p className="text-[11px] font-bold uppercase tracking-[0.12em] opacity-75">
-                            {disponibles.length === 1
-                                ? "Único proveedor"
-                                : mostrarPrecios
-                                    ? "Mejor precio"
-                                    : "Proveedor sugerido"}
-                        </p>
-                        {/* Con precios el nombre del proveedor va arriba, porque
-                            el dato grande es el importe. Sin ellos el proveedor
-                            pasa a ser el dato grande y aquí sobraría. */}
-                        {mostrarPrecios && (
-                            <p className="text-base font-bold leading-none">
-                                {ganador.proveedor}
-                            </p>
-                        )}
-                    </div>
-                    <div className="mt-2 flex items-end justify-between gap-2">
-                        {mostrarPrecios ? (
-                            <p className="font-mono text-3xl font-bold leading-none tabular-nums">
-                                {formatoPrecio(menorPrecio)}
-                            </p>
-                        ) : (
-                            <p className="text-2xl font-bold leading-tight">
-                                {ganador.proveedor}
-                            </p>
-                        )}
-                        {mostrarPrecios && menorPrecio !== mayorPrecio && (
-                            <p className="text-right text-xs leading-tight opacity-75">
-                                rango
-                                <br />
-                                <span className="font-mono tabular-nums">
-                                    {precioCompacto(menorPrecio)}-{precioCompacto(mayorPrecio)}
-                                </span>
-                            </p>
-                        )}
-                        {(!mostrarPrecios || menorPrecio === mayorPrecio) &&
-                            ganador.unidad && (
-                                <p className="text-right text-xs leading-tight opacity-75">
-                                    por
-                                    <br />
-                                    <span className="font-semibold">{ganador.unidad}</span>
-                                </p>
-                            )}
-                    </div>
-                </div>
-            )}
-
-            {/* Ranking completo y elegible: el orden de proveedores de más
+                Ranking completo y elegible: el orden de proveedores de más
                 barato a más caro, con el ganador marcado por defecto y la fila
                 elegida teñida con el `bubble_background` de su proveedor. El
                 botón agrega el proveedor que quede seleccionado, no forzosamente
