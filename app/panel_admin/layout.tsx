@@ -12,8 +12,8 @@ export default function PanelAdminLayout({
 			{/* Fondo: burbujas con efecto de respiración */}
 			<BurbujasFondo className="pointer-events-none fixed inset-0 -z-10" />
 
-			<div className="mx-auto flex min-h-screen w-full max-w-7xl items-start px-4 sm:px-6 lg:px-8">
-				<aside className="sticky top-4 my-4 flex h-[calc(100vh-2rem)] w-80 shrink-0 flex-col rounded-l-2xl bg-white px-4 py-5 text-gray-800 shadow-sm ring-1 ring-gray-200/80">
+			<div className="mx-auto flex min-h-screen w-full max-w-[1600px] items-start px-4 sm:px-6 lg:px-8">
+				<aside className="sticky top-4 my-4 flex h-[calc(100vh-2rem)] w-64 shrink-0 flex-col rounded-l-2xl bg-white px-4 py-5 text-gray-800 shadow-sm ring-1 ring-gray-200/80">
 					{/* Filo biselado superior — borde iluminado del cristal */}
 					<div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-px rounded-t-2xl bg-gradient-to-r from-transparent via-white/80 to-transparent" />
 					{/* Filo biselado izquierdo */}

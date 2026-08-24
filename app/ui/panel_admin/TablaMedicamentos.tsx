@@ -204,7 +204,10 @@ export default function TablaMedicamentos({
                                     key={fila.codigoBarras}
                                     className="transition hover:bg-gray-50/60"
                                 >
-                                    <td className="whitespace-nowrap px-6 py-4 font-medium text-gray-800">
+                                    <td
+                                        className="max-w-xs truncate px-6 py-4 font-medium text-gray-800"
+                                        title={fila.nombre}
+                                    >
                                         {fila.nombre}
                                     </td>
                                     <td className="whitespace-nowrap px-6 py-4">
