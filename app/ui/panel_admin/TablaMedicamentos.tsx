@@ -201,7 +201,7 @@ export default function TablaMedicamentos({
                         ) : (
                             filas.map((fila) => (
                                 <tr
-                                    key={fila.codigoBarras}
+                                    key={`${fila.codigoBarras}-${fila.proveedor}`}
                                     className="transition hover:bg-gray-50/60"
                                 >
                                     <td

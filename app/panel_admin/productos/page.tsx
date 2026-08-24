@@ -31,48 +31,43 @@ export default async function PanelProductos({
         ),
     ].sort((a, b) => a.localeCompare(b, "es"));
 
-    // Filtrar por término de búsqueda
-    let buscados = catalogo.medicamentos;
+    // Aplanar el catálogo: cada oferta de proveedor es una fila independiente.
+    // Esto refleja directamente la tabla Producto_Lista_Proveedores cruzada con Producto y Lista_Proveedores.
+    let todasLasOfertas = catalogo.medicamentos.flatMap((med) =>
+        med.precios.map((precio) => ({
+            nombre: med.nombre,
+            codigoBarras: med.codigoBarras,
+            proveedor: precio.proveedor,
+            precio: precio.precio,
+            existencias: precio.existencias,
+            unidad: precio.unidad,
+            textoBusqueda: med.textoBusqueda,
+        }))
+    );
+
+    // Filtrar por término de búsqueda (aplica al nombre y código de barras)
     if (termino) {
-        buscados = buscados.filter((m) => m.textoBusqueda.includes(termino));
+        todasLasOfertas = todasLasOfertas.filter((o) =>
+            o.textoBusqueda.includes(termino)
+        );
     }
 
     // Filtrar por proveedor
-    let encontrados = buscados;
     if (provPedido) {
-        encontrados = encontrados.filter((m) =>
-            m.precios.some((p) => p.proveedor === provPedido),
+        todasLasOfertas = todasLasOfertas.filter(
+            (o) => o.proveedor === provPedido
         );
     }
 
     // Paginación
-    const totalPaginas = Math.max(Math.ceil(encontrados.length / POR_PAGINA), 1);
+    const totalPaginas = Math.max(Math.ceil(todasLasOfertas.length / POR_PAGINA), 1);
     const pedida = Number.parseInt(parametros.p ?? "1", 10);
     const pagina = Number.isFinite(pedida)
         ? Math.min(Math.max(pedida, 1), totalPaginas)
         : 1;
 
     const desde = (pagina - 1) * POR_PAGINA;
-    const visibles = encontrados.slice(desde, desde + POR_PAGINA);
-
-    // Mapear a filas
-    const filas = visibles.map((med) => {
-        // Ordenar por precio para tomar el más barato como referencia
-        const ordenados = [...med.precios].sort((a, b) => a.precio - b.precio);
-        // Si hay un filtro de proveedor, mostramos el precio de ese proveedor
-        const mejor = provPedido
-            ? ordenados.find((p) => p.proveedor === provPedido) ?? ordenados[0]
-            : ordenados[0];
-
-        return {
-            nombre: med.nombre,
-            codigoBarras: med.codigoBarras,
-            proveedor: mejor?.proveedor ?? "—",
-            precio: mejor?.precio ?? 0,
-            existencias: mejor?.existencias,
-            unidad: mejor?.unidad,
-        };
-    });
+    const filas = todasLasOfertas.slice(desde, desde + POR_PAGINA);
 
     return (
         <div className="flex flex-col gap-6">
@@ -111,7 +106,7 @@ export default async function PanelProductos({
                 prov={provPedido}
                 pagina={pagina}
                 totalPaginas={totalPaginas}
-                totalResultados={encontrados.length}
+                totalResultados={todasLasOfertas.length}
             />
         </div>
     );
