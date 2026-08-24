@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useTransition } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import BotonCopiarCodigo from "../grid_productos/BotonCopiarCodigo";
+import FilaMedicamentoComponent from "./FilaMedicamento";
+import { eliminarOfertaProducto } from "../../lib/accionesProductos";
 
 /** Fila de la tabla ya aplanada desde el server component. */
 export type FilaMedicamento = {
@@ -44,6 +46,21 @@ export default function TablaMedicamentos({
 
     // Estado local para el buscador (con debounce)
     const [busqueda, setBusqueda] = useState(q);
+
+    // Estado y lógica para el modal de borrado
+    const [filaABorrar, setFilaABorrar] = useState<FilaMedicamento | null>(null);
+    const [pendienteBorrado, iniciarBorrado] = useTransition();
+
+    async function confirmarBorrado() {
+        if (!filaABorrar) return;
+        iniciarBorrado(async () => {
+            const res = await eliminarOfertaProducto(filaABorrar.codigoBarras, filaABorrar.proveedor);
+            if (res?.error) {
+                alert(res.error);
+            }
+            setFilaABorrar(null);
+        });
+    }
 
     const actualizarUrl = useCallback(
         (clave: string, valor: string) => {
@@ -200,83 +217,12 @@ export default function TablaMedicamentos({
                             </tr>
                         ) : (
                             filas.map((fila) => (
-                                <tr
+                                <FilaMedicamentoComponent
                                     key={`${fila.codigoBarras}-${fila.proveedor}`}
-                                    className="transition hover:bg-gray-50/60"
-                                >
-                                    <td
-                                        className="max-w-xs truncate px-6 py-4 font-medium text-gray-800"
-                                        title={fila.nombre}
-                                    >
-                                        {fila.nombre}
-                                    </td>
-                                    <td className="whitespace-nowrap px-6 py-4">
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-mono text-gray-500">{fila.codigoBarras}</span>
-                                            <BotonCopiarCodigo codigo={fila.codigoBarras} />
-                                        </div>
-                                    </td>
-                                    <td className="whitespace-nowrap px-6 py-4 text-gray-600">
-                                        {fila.proveedor}
-                                    </td>
-                                    <td className="whitespace-nowrap px-6 py-4 text-gray-600">
-                                        {fila.precio > 0
-                                            ? `$${fila.precio.toFixed(2)}`
-                                            : "—"}
-                                    </td>
-                                    <td className="whitespace-nowrap px-6 py-4 text-gray-600">
-                                        {fila.existencias !== undefined
-                                            ? fila.existencias
-                                            : ""}
-                                    </td>
-                                    <td className="whitespace-nowrap px-6 py-4 text-gray-600">
-                                        {fila.unidad ?? ""}
-                                    </td>
-                                    <td className="whitespace-nowrap px-6 py-4">
-                                        <div className="flex items-center gap-2">
-                                            {/* Botón editar */}
-                                            <button
-                                                type="button"
-                                                aria-label={`Editar ${fila.nombre}`}
-                                                className="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                                            >
-                                                <svg
-                                                    className="h-4 w-4"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    strokeWidth={2}
-                                                    viewBox="0 0 24 24"
-                                                >
-                                                    <path
-                                                        strokeLinecap="round"
-                                                        strokeLinejoin="round"
-                                                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                                                    />
-                                                </svg>
-                                            </button>
-                                            {/* Botón eliminar */}
-                                            <button
-                                                type="button"
-                                                aria-label={`Eliminar ${fila.nombre}`}
-                                                className="rounded-lg p-1.5 text-gray-400 transition hover:bg-red-50 hover:text-red-500 focus:outline-none focus:ring-2 focus:ring-red-400"
-                                            >
-                                                <svg
-                                                    className="h-4 w-4"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    strokeWidth={2}
-                                                    viewBox="0 0 24 24"
-                                                >
-                                                    <path
-                                                        strokeLinecap="round"
-                                                        strokeLinejoin="round"
-                                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                                    />
-                                                </svg>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
+                                    fila={fila}
+                                    proveedores={proveedores}
+                                    onBorrarClic={setFilaABorrar}
+                                />
                             ))
                         )}
                     </tbody>
@@ -362,6 +308,37 @@ export default function TablaMedicamentos({
                     </nav>
                 )}
             </div>
+
+            {filaABorrar && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+                    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">¿Eliminar oferta?</h3>
+                        <p className="text-sm text-gray-500 mb-4">
+                            Estás a punto de eliminar la oferta de <strong>{filaABorrar.proveedor}</strong> para el producto <strong>{filaABorrar.nombre}</strong>.
+                            Si esta es la última oferta de este producto, el producto desaparecerá por completo del catálogo. ¿Deseas continuar?
+                        </p>
+                        
+                        <div className="flex items-center gap-3 mt-6 justify-end">
+                            <button
+                                type="button"
+                                onClick={() => setFilaABorrar(null)}
+                                disabled={pendienteBorrado}
+                                className="rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-200"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                onClick={confirmarBorrado}
+                                disabled={pendienteBorrado}
+                                className="rounded-xl bg-red-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-60"
+                            >
+                                {pendienteBorrado ? "Eliminando..." : "Eliminar"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     );
 }
