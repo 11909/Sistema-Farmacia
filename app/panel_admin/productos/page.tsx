@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { obtenerCatalogo, normalizarTexto } from "../../lib/catalogo";
 import TablaMedicamentos from "../../ui/panel_admin/TablaMedicamentos";
 
@@ -76,8 +77,8 @@ export default async function PanelProductos({
                 <h1 className="text-2xl font-bold text-gray-800">
                     Medicamentos
                 </h1>
-                <button
-                    type="button"
+                <Link
+                    href="/panel_admin/nuevo_prod"
                     className="flex items-center gap-2 rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
                 >
                     <svg
@@ -95,7 +96,7 @@ export default async function PanelProductos({
                         />
                     </svg>
                     Nuevo medicamento
-                </button>
+                </Link>
             </div>
 
             {/* Tabla interactiva */}
