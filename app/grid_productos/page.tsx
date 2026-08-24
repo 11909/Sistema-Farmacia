@@ -1,5 +1,6 @@
 // Comparador de precios por proveedor
 import Link from "next/link";
+import TarjetaProducto from "../ui/grid_productos/TarjetaProducto";
 import BotonCopiarCodigo from "../ui/grid_productos/BotonCopiarCodigo";
 import FiltroProveedores from "../ui/grid_productos/FiltroProveedores";
 import SelectorProveedor from "../ui/grid_productos/SelectorProveedor";
@@ -34,96 +35,7 @@ import {
  */
 const POR_PAGINA = 24;
 
-function TarjetaProducto({
-    medicamento,
-    paletas,
-    fondos,
-    mostrarPrecios,
-}: {
-    medicamento: Medicamento;
-    /** Colores de burbujas de `Lista_Proveedores`, para teñir el banner. */
-    paletas: PaletasProveedor;
-    /** Paradas de `selector_color`, para marcar al proveedor elegido. */
-    fondos: FondosSeleccion;
-    /**
-     * Si se pintan los importes. Con `false` la tarjeta enseña el ranking de
-     * proveedores y el ganador, pero ningún precio.
-     *
-     * Lo que la tarjeta pinta por su cuenta es de servidor, así que con `false`
-     * no llega al navegador ni en el HTML ni en el payload. Las ofertas son el
-     * caso aparte: van como prop al selector, que es de cliente, y ahí sí
-     * viajarían, así que se les quita el precio antes (ver `ofertas`).
-     */
-    mostrarPrecios: boolean;
-}) {
-    // Orden ascendente por precio; los agotados van al final.
-    const ordenados = ofertasOrdenadas(medicamento);
 
-    // Lo que se le entrega al selector, que es de cliente. A una cuenta de
-    // sucursal se le quitan los importes aquí, antes de que las ofertas entren
-    // en el payload: no basta con no pintarlos, porque lo que va como prop a un
-    // componente de cliente viaja al navegador.
-    //
-    // `conSobrecoste` va antes del recorte porque necesita los precios para
-    // calcular el porcentaje. El porcentaje sí sobrevive al recorte: es una
-    // proporción, no un importe (ver `OfertaVisible`).
-    const ofertas: OfertaVisible[] = conSobrecoste(
-        ordenados.map((p) => {
-            const oferta: OfertaVisible = {
-                proveedor: p.proveedor,
-                precio: p.precio,
-                disponible: p.disponible,
-                // Cuando la hoja no da una cantidad (trae la unidad de venta en
-                // esa celda) no hay tope real que aplicar, así que se usa el
-                // mismo por defecto que el carrito.
-                existencias: p.existencias ?? EXISTENCIAS_POR_DEFECTO,
-            };
-            if (p.unidad !== undefined) oferta.unidad = p.unidad;
-            return oferta;
-        }),
-    );
-
-    return (
-        <article className="flex flex-col rounded-3xl bg-white p-7 shadow-sm ring-1 ring-gray-200/80 transition duration-200 hover:-translate-y-1 hover:shadow-xl hover:shadow-gray-900/5 hover:ring-gray-300">
-            {/* Encabezado: nombre y código de barras, los dos de `Producto`.
-                El nombre va en texto plano porque no hay ficha de producto a la
-                que enlazar: `/grid_productos/[codigo]` no existe como ruta. */}
-            <h3 className="text-lg font-bold leading-snug text-gray-900">
-                {medicamento.nombre}
-            </h3>
-
-            <div className="mt-1.5 flex items-center gap-1.5">
-                <span className="font-mono text-[13px] tracking-tight text-gray-400">
-                    {medicamento.codigoBarras}
-                </span>
-                <BotonCopiarCodigo codigo={medicamento.codigoBarras} />
-            </div>
-
-            {/* Separador entre la ficha del producto y el comparador. El aviso
-                de precio que iba aquí lo pinta ahora `AvisoPrecio`, dentro de
-                `SelectorProveedor`, porque su texto y su color dependen del
-                proveedor que esté elegido. */}
-            <div className="mt-4 border-t border-gray-100" />
-
-            {/* El banner del proveedor lo pinta `SelectorProveedor`, porque
-                tiene que seguir a la selección del ranking.
-
-                Ranking completo y elegible: el orden de proveedores de más
-                barato a más caro, con el ganador marcado por defecto y la fila
-                elegida teñida con el `bubble_background` de su proveedor. El
-                botón agrega el proveedor que quede seleccionado, no forzosamente
-                el más barato. */}
-            <SelectorProveedor
-                codigoBarras={medicamento.codigoBarras}
-                nombre={medicamento.nombre}
-                ofertas={mostrarPrecios ? ofertas : sinPreciosOfertas(ofertas)}
-                paletas={paletas}
-                fondos={fondos}
-                mostrarPrecios={mostrarPrecios}
-            />
-        </article>
-    );
-}
 
 /**
  * Números de página a mostrar, con `null` donde va una elipsis.

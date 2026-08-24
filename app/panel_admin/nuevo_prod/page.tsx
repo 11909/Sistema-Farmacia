@@ -6,7 +6,7 @@ export const metadata = {
 };
 
 export default async function NuevoProductoPage() {
-    // Obtenemos los proveedores del catálogo para el dropdown
+    // Obtenemos los proveedores y paletas del catálogo para el dropdown y la tarjeta
     const catalogo = await obtenerCatalogo();
     
     // Convertimos a un arreglo simple id/nombre
@@ -17,7 +17,11 @@ export default async function NuevoProductoPage() {
 
     return (
         <div className="flex w-full items-center justify-center p-4">
-            <FormNuevoProducto proveedores={proveedores} />
+            <FormNuevoProducto
+                proveedores={proveedores}
+                paletas={catalogo.directorio.paletas}
+                fondos={catalogo.directorio.fondosSeleccion}
+            />
         </div>
     );
 }

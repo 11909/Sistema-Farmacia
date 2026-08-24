@@ -51,42 +51,15 @@ const OFERTAS = {
  */
 const TTL_CATALOGO_MS = 5 * 60 * 1000;
 
-/** Tope del selector de cantidad cuando no se conoce la existencia real. */
-export const EXISTENCIAS_POR_DEFECTO = 99;
+import {
+    EXISTENCIAS_POR_DEFECTO,
+    ofertasOrdenadas,
+    type Medicamento,
+    type PrecioProveedor,
+} from "./tiposCatalogo";
 
-/** Oferta de un proveedor para un producto: una fila de `Producto_Lista_Proveedores`. */
-export type PrecioProveedor = {
-    proveedor: string;
-    precio: number;
-    disponible: boolean;
-    /**
-     * Piezas en existencia, solo cuando `existencia_producto` trae un número.
-     * Si no, se desconoce y el selector de cantidad usa
-     * `EXISTENCIAS_POR_DEFECTO`.
-     */
-    existencias?: number;
-    /**
-     * Unidad de venta declarada por el proveedor (PZ, PAQ, CAJA...).
-     */
-    unidad?: string;
-};
-
-export type Medicamento = {
-    /** `codigo_barras`: la clave del producto en toda la hoja. */
-    codigoBarras: string;
-    nombre: string;
-    /** Columna `imagen` de `Producto`, hoy vacía en todas las filas. */
-    imagen?: string;
-    /** Una entrada por proveedor que lo ofrece, sin ordenar. */
-    precios: PrecioProveedor[];
-    /**
-     * Nombre y código en minúsculas y sin acentos, para el buscador.
-     *
-     * Se precalcula al armar el catálogo porque normalizar 9 700 nombres en
-     * cada búsqueda sería trabajo repetido en cada petición.
-     */
-    textoBusqueda: string;
-};
+export type { Medicamento, PrecioProveedor };
+export { EXISTENCIAS_POR_DEFECTO, ofertasOrdenadas };
 
 export type Catalogo = {
     /** Todos los productos, ordenados por nombre. */
@@ -314,19 +287,4 @@ export function mejorOferta(medicamento: Medicamento): PrecioProveedor | null {
     if (disponibles.length === 0) return null;
 
     return disponibles.reduce((a, b) => (b.precio < a.precio ? b : a));
-}
-
-/**
- * Ofertas de más barata a más cara, con las agotadas al final.
- *
- * Es el orden con el que la tarjeta pinta la comparativa, y de su primer
- * elemento disponible sale el proveedor ganador.
- */
-export function ofertasOrdenadas(
-    medicamento: Medicamento,
-): PrecioProveedor[] {
-    return [...medicamento.precios].sort((a, b) => {
-        if (a.disponible !== b.disponible) return a.disponible ? -1 : 1;
-        return a.precio - b.precio;
-    });
 }

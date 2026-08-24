@@ -92,3 +92,28 @@ export function sinPreciosOfertas(ofertas: OfertaVisible[]): OfertaVisible[] {
         return visible;
     });
 }
+
+export const EXISTENCIAS_POR_DEFECTO = 99;
+
+export type PrecioProveedor = {
+    proveedor: string;
+    precio: number;
+    disponible: boolean;
+    existencias?: number;
+    unidad?: string;
+};
+
+export type Medicamento = {
+    codigoBarras: string;
+    nombre: string;
+    imagen?: string;
+    precios: PrecioProveedor[];
+    textoBusqueda: string;
+};
+
+export function ofertasOrdenadas(medicamento: Medicamento): PrecioProveedor[] {
+    return [...medicamento.precios].sort((a, b) => {
+        if (a.disponible !== b.disponible) return a.disponible ? -1 : 1;
+        return a.precio - b.precio;
+    });
+}
