@@ -93,7 +93,7 @@ export function sinPreciosOfertas(ofertas: OfertaVisible[]): OfertaVisible[] {
     });
 }
 
-export const EXISTENCIAS_POR_DEFECTO = 99;
+export const EXISTENCIAS_POR_DEFECTO = 1000;
 
 export type PrecioProveedor = {
     proveedor: string;
