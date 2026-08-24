@@ -384,6 +384,7 @@ export default function FormNuevoProducto({ proveedores, paletas, fondos }: Prop
                                 paletas={paletas}
                                 fondos={fondos}
                                 mostrarPrecios={true}
+                                desactivarCarrito={true}
                             />
                         </div>
 

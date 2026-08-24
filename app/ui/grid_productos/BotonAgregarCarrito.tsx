@@ -13,6 +13,8 @@ type BotonAgregarCarritoProps = {
     cantidad: number;
     /** Se avisa mientras la escritura está en vuelo, para bloquear el selector. */
     onPendiente?: (pendiente: boolean) => void;
+    /** Si es true, el botón se desactiva permanentemente (ej. modo previsualización). */
+    deshabilitado?: boolean;
 };
 
 /**
@@ -29,6 +31,7 @@ export default function BotonAgregarCarrito({
     nombre,
     cantidad,
     onPendiente,
+    deshabilitado,
 }: BotonAgregarCarritoProps) {
     // `useTransition` en lugar de un `useState` de carga: mantiene el botón
     // reactivo y deja que React coordine el refresco del servidor que dispara
@@ -79,13 +82,15 @@ export default function BotonAgregarCarrito({
         <button
             type="button"
             onClick={agregar}
-            disabled={pendiente}
+            disabled={pendiente || deshabilitado}
             aria-label={`Agregar ${cantidad} ${cantidad === 1 ? "pieza" : "piezas"} de ${nombre} al carrito, proveedor ${proveedor}`}
             className={`mt-3 w-full rounded-2xl px-5 py-4 text-base font-semibold text-white transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-wait ${estado === "error"
                 ? "bg-rose-600 hover:bg-rose-700"
                 : estado === "agregado"
                     ? "bg-emerald-600 hover:bg-emerald-700"
-                    : "bg-slate-800 hover:bg-slate-900"
+                    : deshabilitado
+                        ? "bg-slate-400 cursor-not-allowed"
+                        : "bg-slate-800 hover:bg-slate-900"
                 }`}
         >
             {etiqueta}

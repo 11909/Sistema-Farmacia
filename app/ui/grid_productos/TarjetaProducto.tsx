@@ -15,11 +15,13 @@ export default function TarjetaProducto({
     paletas,
     fondos,
     mostrarPrecios,
+    desactivarCarrito,
 }: {
     medicamento: Medicamento;
     paletas: PaletasProveedor;
     fondos: FondosSeleccion;
     mostrarPrecios: boolean;
+    desactivarCarrito?: boolean;
 }) {
     const ordenados = ofertasOrdenadas(medicamento);
 
@@ -58,6 +60,7 @@ export default function TarjetaProducto({
                 paletas={paletas}
                 fondos={fondos}
                 mostrarPrecios={mostrarPrecios}
+                desactivarCarrito={desactivarCarrito}
             />
         </article>
     );
