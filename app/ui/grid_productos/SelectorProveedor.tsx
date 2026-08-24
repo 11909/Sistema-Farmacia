@@ -61,6 +61,8 @@ type SelectorProveedorProps = {
     fondos: FondosSeleccion;
     /** Si se pintan los importes. Con `false` las ofertas llegan sin precio. */
     mostrarPrecios: boolean;
+    /** Desactiva los botones de acción del carrito. */
+    desactivarCarrito?: boolean;
 };
 
 export default function SelectorProveedor({
@@ -70,6 +72,7 @@ export default function SelectorProveedor({
     paletas,
     fondos,
     mostrarPrecios,
+    desactivarCarrito,
 }: SelectorProveedorProps) {
     const disponibles = ofertas.filter((o) => o.disponible);
 
@@ -259,7 +262,7 @@ export default function SelectorProveedor({
                         maximo={ofertaElegida.existencias}
                         etiqueta={nombre}
                         onCambio={setCantidad}
-                        deshabilitado={agregando}
+                        deshabilitado={agregando || desactivarCarrito}
                     />
                 </div>
             )}
@@ -275,6 +278,7 @@ export default function SelectorProveedor({
                 nombre={nombre}
                 cantidad={cantidadValida}
                 onPendiente={setAgregando}
+                deshabilitado={desactivarCarrito}
             />
         </>
     );

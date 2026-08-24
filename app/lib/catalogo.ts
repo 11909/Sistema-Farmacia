@@ -31,11 +31,11 @@ const PRODUCTO = {
 } as const;
 
 // Producto_Lista_Proveedores:
-// A codigo_barras | B id_proveedor | C precio_unitario_producto | D existencia_producto
+// A codigo_barras | B id_proveedor | C precio_unitario_producto | D existencia_producto | E presentacion
 const OFERTAS = {
-    rango: "Producto_Lista_Proveedores!A2:D",
-    columnas: 4,
-    col: { codigoBarras: 0, idProveedor: 1, precio: 2, existencia: 3 },
+    rango: "Producto_Lista_Proveedores!A2:E",
+    columnas: 5,
+    col: { codigoBarras: 0, idProveedor: 1, precio: 2, existencia: 3, presentacion: 4 },
 } as const;
 
 /**
@@ -51,46 +51,15 @@ const OFERTAS = {
  */
 const TTL_CATALOGO_MS = 5 * 60 * 1000;
 
-/** Tope del selector de cantidad cuando no se conoce la existencia real. */
-export const EXISTENCIAS_POR_DEFECTO = 99;
+import {
+    EXISTENCIAS_POR_DEFECTO,
+    ofertasOrdenadas,
+    type Medicamento,
+    type PrecioProveedor,
+} from "./tiposCatalogo";
 
-/** Oferta de un proveedor para un producto: una fila de `Producto_Lista_Proveedores`. */
-export type PrecioProveedor = {
-    proveedor: string;
-    precio: number;
-    disponible: boolean;
-    /**
-     * Piezas en existencia, solo cuando `existencia_producto` trae un número.
-     * Si no, se desconoce y el selector de cantidad usa
-     * `EXISTENCIAS_POR_DEFECTO`.
-     */
-    existencias?: number;
-    /**
-     * Unidad de venta declarada por el proveedor (PZ, PAQ, CAJA...).
-     *
-     * Sale de la misma columna `existencia_producto`: en unas 2 600 filas la
-     * celda no lleva una cantidad sino la unidad en la que se surte. Son dos
-     * datos distintos en una sola columna, así que aquí se separan.
-     */
-    unidad?: string;
-};
-
-export type Medicamento = {
-    /** `codigo_barras`: la clave del producto en toda la hoja. */
-    codigoBarras: string;
-    nombre: string;
-    /** Columna `imagen` de `Producto`, hoy vacía en todas las filas. */
-    imagen?: string;
-    /** Una entrada por proveedor que lo ofrece, sin ordenar. */
-    precios: PrecioProveedor[];
-    /**
-     * Nombre y código en minúsculas y sin acentos, para el buscador.
-     *
-     * Se precalcula al armar el catálogo porque normalizar 9 700 nombres en
-     * cada búsqueda sería trabajo repetido en cada petición.
-     */
-    textoBusqueda: string;
-};
+export type { Medicamento, PrecioProveedor };
+export { EXISTENCIAS_POR_DEFECTO, ofertasOrdenadas };
 
 export type Catalogo = {
     /** Todos los productos, ordenados por nombre. */
@@ -129,28 +98,6 @@ function leerPrecio(celda: string): number | null {
     return precio;
 }
 
-/**
- * Interpreta `existencia_producto`, que mezcla dos cosas.
- *
- * Unas filas traen una cantidad ("15") y otras la unidad de venta ("PZ",
- * "PAQ", "CAJA"). Se distingue por si la celda es numérica, y cada caso va a su
- * campo: así el selector de cantidad solo se topa con números.
- */
-function leerExistencia(celda: string): {
-    existencias?: number;
-    unidad?: string;
-} {
-    const valor = celda.trim();
-    if (!valor) return {};
-
-    const cantidad = Number(valor.replace(/[,\s]/g, ""));
-    if (Number.isFinite(cantidad)) {
-        return { existencias: Math.max(Math.trunc(cantidad), 0) };
-    }
-
-    return { unidad: valor.toUpperCase() };
-}
-
 /** Agrupa las ofertas por código de barras, ya traducidas a nombre de proveedor. */
 function agruparOfertas(
     filas: string[][],
@@ -175,9 +122,10 @@ function agruparOfertas(
         // pintar un cero, que se leería como gratis.
         if (precio === null) continue;
 
-        const { existencias, unidad } = leerExistencia(
-            fila[OFERTAS.col.existencia],
-        );
+        const existenciaRaw = fila[OFERTAS.col.existencia]?.trim();
+        const cantidad = existenciaRaw ? Number(existenciaRaw.replace(/[,\s]/g, "")) : NaN;
+        const existencias = Number.isFinite(cantidad) ? Math.max(Math.trunc(cantidad), 0) : undefined;
+        const unidad = fila[OFERTAS.col.presentacion]?.trim();
 
         const oferta: PrecioProveedor = {
             proveedor,
@@ -188,7 +136,7 @@ function agruparOfertas(
             disponible: existencias === undefined || existencias > 0,
         };
         if (existencias !== undefined) oferta.existencias = existencias;
-        if (unidad !== undefined) oferta.unidad = unidad;
+        if (unidad) oferta.unidad = unidad;
 
         const existentes = porCodigo.get(codigo);
         if (existentes) existentes.push(oferta);
@@ -256,6 +204,10 @@ async function leerCatalogo(): Promise<Catalogo> {
  * suya, así que pueden verse desfasadas hasta `TTL_CATALOGO_MS`.
  */
 let enCache: { promesa: Promise<Catalogo>; expira: number } | null = null;
+
+export function limpiarCatalogo() {
+    enCache = null;
+}
 
 /** Catálogo completo, reutilizado durante `TTL_CATALOGO_MS`. */
 export function obtenerCatalogo(): Promise<Catalogo> {
@@ -335,19 +287,4 @@ export function mejorOferta(medicamento: Medicamento): PrecioProveedor | null {
     if (disponibles.length === 0) return null;
 
     return disponibles.reduce((a, b) => (b.precio < a.precio ? b : a));
-}
-
-/**
- * Ofertas de más barata a más cara, con las agotadas al final.
- *
- * Es el orden con el que la tarjeta pinta la comparativa, y de su primer
- * elemento disponible sale el proveedor ganador.
- */
-export function ofertasOrdenadas(
-    medicamento: Medicamento,
-): PrecioProveedor[] {
-    return [...medicamento.precios].sort((a, b) => {
-        if (a.disponible !== b.disponible) return a.disponible ? -1 : 1;
-        return a.precio - b.precio;
-    });
 }

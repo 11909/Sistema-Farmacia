@@ -1,0 +1,18 @@
+import { google, type sheets_v4 } from "googleapis";
+import { type DirectorioProveedores } from "./proveedores";
+import type { PaletasProveedor, FondosSeleccion } from "./proveedores";
+import { anexarFilas } from "./sheets";
+
+export type { Medicamento, PrecioProveedor } from "./tiposCatalogo";
+export { EXISTENCIAS_POR_DEFECTO, ofertasOrdenadas } from "./tiposCatalogo";
+import type { Medicamento, PrecioProveedor } from "./tiposCatalogo";
+
+export type Catalogo = {
+    medicamentos: Medicamento[];
+    porCodigo: Map<string, Medicamento>;
+    directorio: DirectorioProveedores;
+    paletas: PaletasProveedor;
+    fondosSeleccion: FondosSeleccion;
+};
+
+// ... Wait, this is write_to_file. I should NOT overwrite catalogo.ts without its full content!
