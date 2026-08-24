@@ -31,11 +31,11 @@ const PRODUCTO = {
 } as const;
 
 // Producto_Lista_Proveedores:
-// A codigo_barras | B id_proveedor | C precio_unitario_producto | D existencia_producto
+// A codigo_barras | B id_proveedor | C precio_unitario_producto | D existencia_producto | E presentacion
 const OFERTAS = {
-    rango: "Producto_Lista_Proveedores!A2:D",
-    columnas: 4,
-    col: { codigoBarras: 0, idProveedor: 1, precio: 2, existencia: 3 },
+    rango: "Producto_Lista_Proveedores!A2:E",
+    columnas: 5,
+    col: { codigoBarras: 0, idProveedor: 1, precio: 2, existencia: 3, presentacion: 4 },
 } as const;
 
 /**
@@ -67,10 +67,6 @@ export type PrecioProveedor = {
     existencias?: number;
     /**
      * Unidad de venta declarada por el proveedor (PZ, PAQ, CAJA...).
-     *
-     * Sale de la misma columna `existencia_producto`: en unas 2 600 filas la
-     * celda no lleva una cantidad sino la unidad en la que se surte. Son dos
-     * datos distintos en una sola columna, así que aquí se separan.
      */
     unidad?: string;
 };
@@ -129,28 +125,6 @@ function leerPrecio(celda: string): number | null {
     return precio;
 }
 
-/**
- * Interpreta `existencia_producto`, que mezcla dos cosas.
- *
- * Unas filas traen una cantidad ("15") y otras la unidad de venta ("PZ",
- * "PAQ", "CAJA"). Se distingue por si la celda es numérica, y cada caso va a su
- * campo: así el selector de cantidad solo se topa con números.
- */
-function leerExistencia(celda: string): {
-    existencias?: number;
-    unidad?: string;
-} {
-    const valor = celda.trim();
-    if (!valor) return {};
-
-    const cantidad = Number(valor.replace(/[,\s]/g, ""));
-    if (Number.isFinite(cantidad)) {
-        return { existencias: Math.max(Math.trunc(cantidad), 0) };
-    }
-
-    return { unidad: valor.toUpperCase() };
-}
-
 /** Agrupa las ofertas por código de barras, ya traducidas a nombre de proveedor. */
 function agruparOfertas(
     filas: string[][],
@@ -175,9 +149,10 @@ function agruparOfertas(
         // pintar un cero, que se leería como gratis.
         if (precio === null) continue;
 
-        const { existencias, unidad } = leerExistencia(
-            fila[OFERTAS.col.existencia],
-        );
+        const existenciaRaw = fila[OFERTAS.col.existencia]?.trim();
+        const cantidad = existenciaRaw ? Number(existenciaRaw.replace(/[,\s]/g, "")) : NaN;
+        const existencias = Number.isFinite(cantidad) ? Math.max(Math.trunc(cantidad), 0) : undefined;
+        const unidad = fila[OFERTAS.col.presentacion]?.trim();
 
         const oferta: PrecioProveedor = {
             proveedor,
@@ -188,7 +163,7 @@ function agruparOfertas(
             disponible: existencias === undefined || existencias > 0,
         };
         if (existencias !== undefined) oferta.existencias = existencias;
-        if (unidad !== undefined) oferta.unidad = unidad;
+        if (unidad) oferta.unidad = unidad;
 
         const existentes = porCodigo.get(codigo);
         if (existentes) existentes.push(oferta);
