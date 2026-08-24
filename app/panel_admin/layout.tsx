@@ -1,12 +1,22 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "../lib/auth";
 import IconoLogin from "../ui/shared/IconoLogin";
 import BurbujasFondo from "../ui/panel_admin/BurbujasFondo";
 
-export default function PanelAdminLayout({
+export default async function PanelAdminLayout({
 	children,
 }: {
 	children: React.ReactNode;
 }) {
+	const session = await getServerSession(authOptions);
+
+	// Si no hay sesión o el rol no es administrador, expulsar de esta ruta.
+	if (!session || session.user?.rol !== "administrador") {
+		redirect("/grid_productos");
+	}
+
 	return (
 		<div className="relative min-h-screen font-sans">
 			{/* Fondo: burbujas con efecto de respiración */}

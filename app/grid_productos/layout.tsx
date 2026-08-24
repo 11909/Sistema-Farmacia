@@ -108,25 +108,27 @@ export default async function GridProductosLayout({
                         )}
                     </Link>
 
-                    <Link
-                        href="/panel_admin"
-                        className="flex items-center gap-2 rounded-lg border border-white/60 bg-white/50 px-5 py-2.5 text-sm font-medium text-gray-700 backdrop-blur-sm transition hover:bg-white/80 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                        <svg
-                            aria-hidden="true"
-                            className="h-5 w-5"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                            viewBox="0 0 24 24"
+                    {sesion.user?.rol === "administrador" && (
+                        <Link
+                            href="/panel_admin"
+                            className="flex items-center gap-2 rounded-lg border border-white/60 bg-white/50 px-5 py-2.5 text-sm font-medium text-gray-700 backdrop-blur-sm transition hover:bg-white/80 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
-                            <rect width="7" height="7" x="3" y="3" rx="1" />
-                            <rect width="7" height="7" x="14" y="3" rx="1" />
-                            <rect width="7" height="7" x="3" y="14" rx="1" />
-                            <rect width="7" height="7" x="14" y="14" rx="1" />
-                        </svg>
-                        <span className="hidden sm:inline">Panel</span>
-                    </Link>
+                            <svg
+                                aria-hidden="true"
+                                className="h-5 w-5"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth={2}
+                                viewBox="0 0 24 24"
+                            >
+                                <rect width="7" height="7" x="3" y="3" rx="1" />
+                                <rect width="7" height="7" x="14" y="3" rx="1" />
+                                <rect width="7" height="7" x="3" y="14" rx="1" />
+                                <rect width="7" height="7" x="14" y="14" rx="1" />
+                            </svg>
+                            <span className="hidden sm:inline">Panel</span>
+                        </Link>
+                    )}
 
                     {/* Cuenta en sesión + salida */}
                     <div className="flex items-center gap-3">
