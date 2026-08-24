@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import BotonCopiarCodigo from "../grid_productos/BotonCopiarCodigo";
 
 /** Fila de la tabla ya aplanada desde el server component. */
@@ -16,36 +18,87 @@ export type FilaMedicamento = {
 type Props = {
     filas: FilaMedicamento[];
     proveedores: string[];
+    q?: string;
+    prov?: string;
+    pagina?: number;
+    totalPaginas?: number;
+    totalResultados?: number;
 };
 
 /**
- * Tabla de medicamentos con búsqueda en tiempo real y filtro por proveedor.
+ * Tabla de medicamentos con paginación desde el servidor.
  * Replica el diseño de la imagen de referencia.
  */
-export default function TablaMedicamentos({ filas, proveedores }: Props) {
-    const [busqueda, setBusqueda] = useState("");
-    const [proveedorFiltro, setProveedorFiltro] = useState("");
+export default function TablaMedicamentos({
+    filas,
+    proveedores,
+    q = "",
+    prov = "",
+    pagina = 1,
+    totalPaginas = 1,
+    totalResultados = 0,
+}: Props) {
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
 
-    const filtradas = useMemo(() => {
-        let resultado = filas;
+    // Estado local para el buscador (con debounce)
+    const [busqueda, setBusqueda] = useState(q);
 
-        if (busqueda.trim()) {
-            const termino = busqueda.toLowerCase();
-            resultado = resultado.filter(
-                (f) =>
-                    f.nombre.toLowerCase().includes(termino) ||
-                    f.codigoBarras.toLowerCase().includes(termino),
-            );
+    const actualizarUrl = useCallback(
+        (clave: string, valor: string) => {
+            const params = new URLSearchParams(searchParams.toString());
+            if (valor) {
+                params.set(clave, valor);
+            } else {
+                params.delete(clave);
+            }
+            // Al buscar o filtrar, volvemos a la página 1
+            if (clave !== "p") {
+                params.delete("p");
+            }
+            router.push(`${pathname}?${params.toString()}`);
+        },
+        [pathname, router, searchParams],
+    );
+
+    // Debounce para la búsqueda
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (busqueda !== q) {
+                actualizarUrl("q", busqueda);
+            }
+        }, 350);
+        return () => clearTimeout(timer);
+    }, [busqueda, q, actualizarUrl]);
+
+    function enlacePagina(p: number) {
+        const params = new URLSearchParams(searchParams.toString());
+        if (p > 1) {
+            params.set("p", String(p));
+        } else {
+            params.delete("p");
         }
+        return `${pathname}?${params.toString()}`;
+    }
 
-        if (proveedorFiltro) {
-            resultado = resultado.filter(
-                (f) => f.proveedor === proveedorFiltro,
-            );
+    // Calcula qué números de página mostrar (ventana simple)
+    const getVentanaPaginas = () => {
+        const delta = 2;
+        const rango: (number | null)[] = [];
+        for (let i = 1; i <= totalPaginas; i++) {
+            if (
+                i === 1 ||
+                i === totalPaginas ||
+                (i >= pagina - delta && i <= pagina + delta)
+            ) {
+                rango.push(i);
+            } else if (rango[rango.length - 1] !== null) {
+                rango.push(null);
+            }
         }
-
-        return resultado;
-    }, [filas, busqueda, proveedorFiltro]);
+        return rango;
+    };
 
     return (
         <>
@@ -79,8 +132,8 @@ export default function TablaMedicamentos({ filas, proveedores }: Props) {
                 {/* Filtro por proveedor */}
                 <div className="relative">
                     <select
-                        value={proveedorFiltro}
-                        onChange={(e) => setProveedorFiltro(e.target.value)}
+                        value={prov}
+                        onChange={(e) => actualizarUrl("prov", e.target.value)}
                         className="appearance-none rounded-lg border border-gray-200 bg-white py-2.5 pl-4 pr-10 text-sm text-gray-700 shadow-sm transition focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
                     >
                         <option value="">Filtrar por proveedor...</option>
@@ -136,7 +189,7 @@ export default function TablaMedicamentos({ filas, proveedores }: Props) {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                        {filtradas.length === 0 ? (
+                        {filas.length === 0 ? (
                             <tr>
                                 <td
                                     colSpan={7}
@@ -146,7 +199,7 @@ export default function TablaMedicamentos({ filas, proveedores }: Props) {
                                 </td>
                             </tr>
                         ) : (
-                            filtradas.map((fila) => (
+                            filas.map((fila) => (
                                 <tr
                                     key={fila.codigoBarras}
                                     className="transition hover:bg-gray-50/60"
@@ -227,18 +280,85 @@ export default function TablaMedicamentos({ filas, proveedores }: Props) {
                 </table>
             </div>
 
-            {/* Contador de resultados */}
-            <p className="text-xs text-gray-400">
-                Mostrando{" "}
-                <span className="font-semibold text-gray-600">
-                    {filtradas.length}
-                </span>{" "}
-                de{" "}
-                <span className="font-semibold text-gray-600">
-                    {filas.length}
-                </span>{" "}
-                medicamentos
-            </p>
+            {/* Paginación y Contador */}
+            <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+                <p className="text-xs text-gray-400">
+                    Mostrando{" "}
+                    <span className="font-semibold text-gray-600">
+                        {filas.length}
+                    </span>{" "}
+                    de{" "}
+                    <span className="font-semibold text-gray-600">
+                        {totalResultados}
+                    </span>{" "}
+                    medicamentos
+                </p>
+
+                {totalPaginas > 1 && (
+                    <nav
+                        aria-label="Paginación"
+                        className="flex items-center gap-2"
+                    >
+                        {pagina > 1 ? (
+                            <Link
+                                href={enlacePagina(pagina - 1)}
+                                className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 shadow-sm transition hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                Anterior
+                            </Link>
+                        ) : (
+                            <span
+                                aria-hidden="true"
+                                className="cursor-not-allowed rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-400 shadow-sm"
+                            >
+                                Anterior
+                            </span>
+                        )}
+
+                        <div className="hidden sm:flex sm:items-center sm:gap-1">
+                            {getVentanaPaginas().map((n, i) =>
+                                n === null ? (
+                                    <span
+                                        key={`dots-${i}`}
+                                        className="px-2 text-sm text-gray-400"
+                                    >
+                                        ...
+                                    </span>
+                                ) : (
+                                    <Link
+                                        key={n}
+                                        href={enlacePagina(n)}
+                                        aria-current={n === pagina ? "page" : undefined}
+                                        className={`flex h-8 min-w-[2rem] items-center justify-center rounded-lg px-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                            n === pagina
+                                                ? "bg-gray-900 text-white shadow-sm"
+                                                : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                                        }`}
+                                    >
+                                        {n}
+                                    </Link>
+                                )
+                            )}
+                        </div>
+
+                        {pagina < totalPaginas ? (
+                            <Link
+                                href={enlacePagina(pagina + 1)}
+                                className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 shadow-sm transition hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                Siguiente
+                            </Link>
+                        ) : (
+                            <span
+                                aria-hidden="true"
+                                className="cursor-not-allowed rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-400 shadow-sm"
+                            >
+                                Siguiente
+                            </span>
+                        )}
+                    </nav>
+                )}
+            </div>
         </>
     );
 }

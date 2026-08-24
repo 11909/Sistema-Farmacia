@@ -1,5 +1,7 @@
-import { obtenerCatalogo } from "../../lib/catalogo";
+import { obtenerCatalogo, normalizarTexto } from "../../lib/catalogo";
 import TablaMedicamentos from "../../ui/panel_admin/TablaMedicamentos";
+
+const POR_PAGINA = 24;
 
 /**
  * Página de medicamentos del panel de administración.
@@ -7,15 +9,60 @@ import TablaMedicamentos from "../../ui/panel_admin/TablaMedicamentos";
  * Muestra todos los productos del catálogo en una tabla con búsqueda,
  * filtro por proveedor y acciones de editar/eliminar.
  */
-export default async function PanelProductos() {
-    const catalogo = await obtenerCatalogo();
+export default async function PanelProductos({
+    searchParams,
+}: {
+    searchParams: Promise<{ q?: string; prov?: string; p?: string }>;
+}) {
+    const [catalogo, parametros] = await Promise.all([
+        obtenerCatalogo(),
+        searchParams,
+    ]);
 
-    // Lista plana: un medicamento puede tener varias ofertas de proveedores.
-    // Aplanamos a filas de tabla con el primer proveedor (o el más barato).
-    const filas = catalogo.medicamentos.map((med) => {
+    const q = (parametros.q ?? "").trim();
+    const provPedido = (parametros.prov ?? "").trim();
+    const termino = normalizarTexto(q);
+    // Proveedores únicos para el filtro (de todo el catálogo)
+    const proveedoresUnicos = [
+        ...new Set(
+            catalogo.medicamentos.flatMap((m) =>
+                m.precios.map((p) => p.proveedor),
+            ),
+        ),
+    ].sort((a, b) => a.localeCompare(b, "es"));
+
+    // Filtrar por término de búsqueda
+    let buscados = catalogo.medicamentos;
+    if (termino) {
+        buscados = buscados.filter((m) => m.textoBusqueda.includes(termino));
+    }
+
+    // Filtrar por proveedor
+    let encontrados = buscados;
+    if (provPedido) {
+        encontrados = encontrados.filter((m) =>
+            m.precios.some((p) => p.proveedor === provPedido),
+        );
+    }
+
+    // Paginación
+    const totalPaginas = Math.max(Math.ceil(encontrados.length / POR_PAGINA), 1);
+    const pedida = Number.parseInt(parametros.p ?? "1", 10);
+    const pagina = Number.isFinite(pedida)
+        ? Math.min(Math.max(pedida, 1), totalPaginas)
+        : 1;
+
+    const desde = (pagina - 1) * POR_PAGINA;
+    const visibles = encontrados.slice(desde, desde + POR_PAGINA);
+
+    // Mapear a filas
+    const filas = visibles.map((med) => {
         // Ordenar por precio para tomar el más barato como referencia
         const ordenados = [...med.precios].sort((a, b) => a.precio - b.precio);
-        const mejor = ordenados[0] ?? null;
+        // Si hay un filtro de proveedor, mostramos el precio de ese proveedor
+        const mejor = provPedido
+            ? ordenados.find((p) => p.proveedor === provPedido) ?? ordenados[0]
+            : ordenados[0];
 
         return {
             nombre: med.nombre,
@@ -26,15 +73,6 @@ export default async function PanelProductos() {
             unidad: mejor?.unidad,
         };
     });
-
-    // Proveedores únicos para el filtro
-    const proveedoresUnicos = [
-        ...new Set(
-            catalogo.medicamentos.flatMap((m) =>
-                m.precios.map((p) => p.proveedor),
-            ),
-        ),
-    ].sort((a, b) => a.localeCompare(b, "es"));
 
     return (
         <div className="flex flex-col gap-6">
@@ -65,10 +103,15 @@ export default async function PanelProductos() {
                 </button>
             </div>
 
-            {/* Tabla interactiva (cliente) con búsqueda y filtro */}
+            {/* Tabla interactiva */}
             <TablaMedicamentos
                 filas={filas}
                 proveedores={proveedoresUnicos}
+                q={q}
+                prov={provPedido}
+                pagina={pagina}
+                totalPaginas={totalPaginas}
+                totalResultados={encontrados.length}
             />
         </div>
     );
