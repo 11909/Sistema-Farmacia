@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { guardarNuevoProducto } from "../../lib/accionesProductos";
 
 type Proveedor = {
     id: string;
@@ -26,6 +27,8 @@ export default function FormNuevoProducto({ proveedores }: Props) {
     const [ofertas, setOfertas] = useState<OfertaForm[]>([
         { idProveedor: "", precio: "", existencias: 0, presentacion: "" }
     ]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [errorMessage, setErrorMessage] = useState("");
 
     const agregarOferta = () => {
         setOfertas([...ofertas, { idProveedor: "", precio: "", existencias: 0, presentacion: "" }]);
@@ -41,11 +44,33 @@ export default function FormNuevoProducto({ proveedores }: Props) {
         setOfertas(nuevas);
     };
 
-    const handleGuardar = (e: React.FormEvent) => {
+    const handleGuardar = async (e: React.FormEvent) => {
         e.preventDefault();
-        // Aquí iría la lógica para enviar a la API
-        alert("Producto guardado (simulado)");
-        router.push("/panel_admin/productos");
+        setErrorMessage("");
+        setIsSubmitting(true);
+
+        try {
+            const respuesta = await guardarNuevoProducto({
+                nombre,
+                codigoBarras,
+                ofertas: ofertas.map(o => ({
+                    idProveedor: o.idProveedor,
+                    precio: String(o.precio),
+                    existencias: o.existencias,
+                    presentacion: o.presentacion
+                }))
+            });
+
+            if (respuesta.error) {
+                setErrorMessage(respuesta.error);
+                setIsSubmitting(false);
+            } else if (respuesta.exito) {
+                router.push("/panel_admin/productos");
+            }
+        } catch (error) {
+            setErrorMessage("Ocurrió un error inesperado al intentar guardar.");
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -81,6 +106,21 @@ export default function FormNuevoProducto({ proveedores }: Props) {
             {/* Formulario */}
             <form onSubmit={handleGuardar}>
                 <div className="space-y-6 px-6 py-5">
+                    {errorMessage && (
+                        <div className="rounded-lg bg-red-50 p-4 border border-red-200">
+                            <div className="flex">
+                                <div className="flex-shrink-0">
+                                    <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
+                                    </svg>
+                                </div>
+                                <div className="ml-3">
+                                    <h3 className="text-sm font-medium text-red-800">{errorMessage}</h3>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Nombre */}
                     <div>
                         <label htmlFor="nombre" className="mb-1.5 block text-sm font-medium text-gray-600">
@@ -239,25 +279,34 @@ export default function FormNuevoProducto({ proveedores }: Props) {
                 <div className="flex items-center justify-end gap-3 rounded-b-xl border-t border-gray-100 bg-gray-50/50 px-6 py-4">
                     <button
                         type="button"
+                        disabled={isSubmitting}
                         onClick={() => router.back()}
-                        className="rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                        className="rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:opacity-50"
                     >
                         Cancelar
                     </button>
                     <button
                         type="submit"
-                        className="flex items-center gap-2 rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                        disabled={isSubmitting}
+                        className="flex items-center gap-2 rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:opacity-50"
                     >
-                        <svg
-                            className="h-4 w-4"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                            viewBox="0 0 24 24"
-                        >
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
-                        </svg>
-                        Guardar
+                        {isSubmitting ? (
+                            <svg className="h-4 w-4 animate-spin text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        ) : (
+                            <svg
+                                className="h-4 w-4"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth={2}
+                                viewBox="0 0 24 24"
+                            >
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
+                            </svg>
+                        )}
+                        {isSubmitting ? "Guardando..." : "Guardar"}
                     </button>
                 </div>
             </form>

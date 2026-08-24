@@ -232,6 +232,10 @@ async function leerCatalogo(): Promise<Catalogo> {
  */
 let enCache: { promesa: Promise<Catalogo>; expira: number } | null = null;
 
+export function limpiarCatalogo() {
+    enCache = null;
+}
+
 /** Catálogo completo, reutilizado durante `TTL_CATALOGO_MS`. */
 export function obtenerCatalogo(): Promise<Catalogo> {
     const ahora = Date.now();
